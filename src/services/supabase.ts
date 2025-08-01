@@ -81,7 +81,7 @@ class SupabaseService {
         end_time: endTime,
         duration: call.duration,
         phone_number: call.phoneNumber,
-        customer_name: call.customerName,
+        customer_name: call.customerName || 'Bilinmeyen Müşteri',
         status: call.status,
         agent_id: call.agentId,
         agent_name: call.agentName,
