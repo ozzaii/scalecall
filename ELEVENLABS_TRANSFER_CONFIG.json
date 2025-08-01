@@ -1,0 +1,42 @@
+{
+  "type": "system",
+  "name": "transfer_to_agent",
+  "description": "Müşteriyi uygun uzmana yönlendir",
+  "params": {
+    "system_tool_type": "transfer_to_agent",
+    "transfers": [
+      {
+        "agent_id": "agent_support_turkcell",
+        "name": "Müşteri Destek Uzmanı",
+        "description": "Fatura, ödeme, paket bilgileri ve genel müşteri hizmetleri",
+        "keywords": ["fatura", "ödeme", "borç", "paket", "TL yükleme", "kullanım", "bakiye"],
+        "transfer_message": "Sizi müşteri destek uzmanımıza yönlendiriyorum. Lütfen bekleyiniz."
+      },
+      {
+        "agent_id": "agent_technical_turkcell",
+        "name": "Teknik Destek Uzmanı",
+        "description": "İnternet, şebeke, cihaz ve teknik sorunlar",
+        "keywords": ["internet", "bağlantı", "yavaş", "şebeke", "çekmiyor", "modem", "fiber", "TV+", "arıza", "teknik"],
+        "transfer_message": "Sizi teknik destek uzmanımıza yönlendiriyorum. Sorununuzu çözecektir."
+      },
+      {
+        "agent_id": "agent_sales_turkcell",
+        "name": "Satış Uzmanı",
+        "description": "Yeni hat, paket değişikliği, kampanyalar ve ek servisler",
+        "keywords": ["yeni hat", "kampanya", "paket değiştir", "tarife", "fırsat", "indirim", "ek paket", "satın al"],
+        "transfer_message": "Sizi satış uzmanımıza yönlendiriyorum. Size en uygun teklifleri sunacaktır."
+      }
+    ],
+    "voicemail_message": "Şu anda tüm uzmanlarımız meşgul. Lütfen daha sonra tekrar arayın veya 532'ye DESTEK yazarak SMS ile ulaşın.",
+    "default_transfer_message": "Sizi ilgili uzmanımıza yönlendiriyorum. Lütfen bekleyiniz.",
+    "no_agent_available_message": "Üzgünüm, şu anda uygun uzman bulunmuyor. Size en kısa sürede dönüş yapacağız."
+  },
+  "disable_interruptions": false,
+  "configuration": {
+    "auto_detect_intent": true,
+    "confirmation_required": false,
+    "preserve_context": true,
+    "transfer_timeout": 10000,
+    "fallback_behavior": "voicemail"
+  }
+}

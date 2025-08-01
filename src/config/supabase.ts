@@ -1,0 +1,6 @@
+// Supabase configuration
+export const SUPABASE_CONFIG = {
+  url: 'https://stiodelubisouckcutwf.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0aW9kZWx1Ymlzb3Vja2N1dHdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMjY0ODMsImV4cCI6MjA2OTYwMjQ4M30.Qn7ovma3mwMaT6S7S1Wm_QzI_EzYki-gCLmvpR7lLgw',
+  serviceRole: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0aW9kZWx1Ymlzb3Vja2N1dHdmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDAyNjQ4MywiZXhwIjoyMDY5NjAyNDgzfQ.j-2YivyecQw7iQFDAOsVkrmAzp3xv9iTQhnO7S9ZfAQ'
+};

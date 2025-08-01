@@ -1,0 +1,372 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 50% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 63%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 0 0% 2%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 2%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 0% 95%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 0 0% 8%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 55%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 40% 40%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 0 0% 12%;
+    --input: 0 0% 12%;
+    --ring: 0 0% 75%;
+  }
+}
+
+/* Force dark mode */
+html {
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased dark;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv01", "cv02", "cv03", "cv04";
+    letter-spacing: -0.015em;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+    letter-spacing: -0.025em;
+  }
+  
+  h1 {
+    @apply text-4xl lg:text-5xl;
+  }
+  
+  h2 {
+    @apply text-3xl lg:text-4xl;
+  }
+  
+  h3 {
+    @apply text-2xl lg:text-3xl;
+  }
+  
+  h4 {
+    @apply text-xl lg:text-2xl;
+  }
+  
+  h5 {
+    @apply text-lg lg:text-xl;
+  }
+  
+  h6 {
+    @apply text-base lg:text-lg;
+  }
+  
+  p {
+    @apply leading-relaxed;
+  }
+}
+
+/* Custom scrollbar - premium dark */
+@layer utilities {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-white/20;
+  }
+  
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  }
+}
+
+/* Premium glassmorphism */
+@layer utilities {
+  .glass {
+    @apply bg-white/[0.01] dark:bg-white/[0.02] backdrop-blur-2xl backdrop-saturate-[1.8];
+    background-image: radial-gradient(
+      ellipse at top left,
+      rgba(255, 255, 255, 0.015),
+      transparent 50%
+    );
+  }
+  
+  .glass-border {
+    @apply border border-white/[0.06] dark:border-white/[0.06];
+    box-shadow: 
+      0 0 0 1px rgba(0, 0, 0, 0.05),
+      0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+  
+  .glass-hover {
+    @apply hover:bg-white/[0.02] dark:hover:bg-white/[0.04] transition-all duration-500 ease-out;
+  }
+  
+  .glass-premium {
+    @apply glass glass-border;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.03) 0%,
+      rgba(255, 255, 255, 0.01) 100%
+    );
+  }
+}
+
+/* Subtle glow effects */
+@layer utilities {
+  .glow-subtle {
+    box-shadow: 
+      0 0 20px rgba(255, 255, 255, 0.01),
+      0 0 40px rgba(255, 255, 255, 0.01);
+  }
+  
+  .glow-hover {
+    @apply transition-all duration-700 ease-out;
+  }
+  
+  .glow-hover:hover {
+    box-shadow: 
+      0 0 30px rgba(255, 255, 255, 0.02),
+      0 0 60px rgba(255, 255, 255, 0.01);
+    transform: translateY(-1px);
+  }
+}
+
+/* Monochrome gradients */
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-white/90 to-white/50 bg-clip-text text-transparent;
+  }
+  
+  .text-gradient-subtle {
+    @apply bg-gradient-to-r from-white/70 to-white/30 bg-clip-text text-transparent;
+  }
+  
+  .bg-gradient-subtle {
+    @apply bg-gradient-to-r from-white/[0.03] to-transparent;
+  }
+}
+
+/* Premium animations */
+@layer utilities {
+  .animate-in {
+    animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  .animate-out {
+    animation: fadeOut 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+  
+  /* Subtle pulse */
+  .animate-pulse-subtle {
+    animation: pulseSubtle 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes pulseSubtle {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+  
+  /* Premium loading */
+  .animate-spin-slow {
+    animation: spin 3s linear infinite;
+  }
+  
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  /* Shimmer - more subtle */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.03) 50%,
+      transparent
+    );
+    animation: shimmer 3s infinite;
+  }
+  
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+}
+
+/* Remove focus rings, add custom */
+@layer utilities {
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-white/10 focus:ring-offset-2 focus:ring-offset-transparent;
+  }
+  
+  button:focus,
+  a:focus,
+  input:focus,
+  textarea:focus,
+  select:focus {
+    @apply outline-none ring-1 ring-white/10;
+  }
+}
+
+/* Premium hover states */
+@layer utilities {
+  .hover-lift {
+    @apply transition-transform duration-500 ease-out hover:-translate-y-0.5;
+  }
+  
+  .hover-glow {
+    @apply transition-all duration-500 ease-out hover:shadow-lg hover:shadow-white/[0.03];
+  }
+}
+
+/* Clean borders */
+@layer utilities {
+  .border-subtle {
+    @apply border-white/[0.06];
+  }
+  
+  .divide-subtle > * + * {
+    @apply border-t border-white/[0.06];
+  }
+}
+
+/* Premium button styles */
+@layer utilities {
+  .btn-premium {
+    @apply relative overflow-hidden transition-all duration-500;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.02)
+    );
+  }
+  
+  .btn-premium:hover {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.04)
+    );
+  }
+  
+  .btn-premium:active {
+    transform: scale(0.98);
+  }
+}
+
+/* Card depth */
+@layer utilities {
+  .card-depth {
+    @apply relative;
+    box-shadow: 
+      0 1px 3px 0 rgba(0, 0, 0, 0.1),
+      0 1px 2px 0 rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
+  }
+}
+
+/* Premium text */
+@layer utilities {
+  .text-primary-premium {
+    @apply text-white/90;
+  }
+  
+  .text-secondary-premium {
+    @apply text-white/60;
+  }
+  
+  .text-tertiary-premium {
+    @apply text-white/40;
+  }
+}
