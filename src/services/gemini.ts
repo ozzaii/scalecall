@@ -151,7 +151,7 @@ Lütfen şu analizleri JSON formatında yap:
     }
   }
 
-  private getDefaultAnalysis(call: CallData): CallAnalytics {
+  getDefaultAnalysis(call: CallData): CallAnalytics {
     // Generate realistic data based on actual call information
     const duration = call.duration || 0;
     const isLongCall = duration > 300; // 5+ minutes

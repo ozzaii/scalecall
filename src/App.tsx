@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { cn } from './lib/utils';
+import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
-import ParticlesBackground from './components/ParticlesBackground';
 import ErrorBoundary from './components/ErrorBoundary';
 import ConnectionStatus from './components/ConnectionStatus';
 import { CallData, CallAnalytics } from './types';
@@ -28,6 +26,7 @@ function App() {
         // STEP 1: Try to load from Supabase first
         console.log('Loading calls from Supabase...');
         const supabaseCalls = await supabaseService.getCalls(50);
+        let callsWithAnalytics: CallData[] = [];
         
         if (supabaseCalls.length > 0) {
           console.log(`Found ${supabaseCalls.length} calls in Supabase`);
@@ -39,7 +38,7 @@ function App() {
           console.log(`Loaded analytics for ${analyticsMap.size} calls`);
           
           // Merge calls with their analytics
-          const callsWithAnalytics = supabaseCalls.map(call => {
+          callsWithAnalytics = supabaseCalls.map(call => {
             return {
               ...call,
               analytics: analyticsMap.get(call.id) // Don't add default analysis here
@@ -141,7 +140,6 @@ function App() {
         toast({
           title: "Rate Limiting Applied",
           description: `Only analyzing ${limitedCalls.length} calls to avoid API limits. Others will be analyzed later.`,
-          variant: "warning"
         });
       }
       
@@ -228,23 +226,28 @@ function App() {
           await supabaseService.upsertCall(call);
           
           // Get audio analysis from Gemini
-          const analysis = await geminiService.analyzeCallAudio(call.audioUrl);
-          setAnalytics(analysis);
-          
-          // Save analytics to Supabase
-          const savedAnalytics = await supabaseService.saveAnalytics(call.id, call.conversationId, analysis);
-          if (savedAnalytics) {
-            console.log('Analytics saved successfully for call:', call.id);
+          let analysis: CallAnalytics | undefined;
+          if (call.audioUrl) {
+            analysis = await geminiService.analyzeCallAudio(call.audioUrl);
+            setAnalytics(analysis);
           }
           
-          // Update call with analysis
-          setCalls(prev => {
-            const updated = prev.map(c => 
-              c.id === call.id ? { ...c, analytics: analysis } : c
-            );
-            storageService.saveCalls(updated); // Auto-save
-            return updated;
-          });
+          // Save analytics to Supabase if we have analysis
+          if (analysis) {
+            const savedAnalytics = await supabaseService.saveAnalytics(call.id, call.conversationId, analysis);
+            if (savedAnalytics) {
+              console.log('Analytics saved successfully for call:', call.id);
+            }
+            
+            // Update call with analysis
+            setCalls(prev => {
+              const updated = prev.map(c => 
+                c.id === call.id ? { ...c, analytics: analysis } : c
+              );
+              storageService.saveCalls(updated); // Auto-save
+              return updated;
+            });
+          }
         } catch (error) {
           console.error('Failed to analyze call:', error);
           toast({
@@ -354,6 +357,8 @@ function App() {
 
     return () => {
       elevenLabsService.disconnect();
+      unsubscribeNewCalls?.();
+      unsubscribeCallUpdates?.();
     };
   }, []);
 
