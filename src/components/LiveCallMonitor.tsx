@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
-import LiveTranscript from './LiveTranscript';
 import LiveAudioVisualizer from './LiveAudioVisualizer';
 
 interface LiveCallMonitorProps {
@@ -102,9 +101,7 @@ export default function LiveCallMonitor({ call }: LiveCallMonitorProps) {
       </motion.div>
 
       {/* Main Content */}
-      <div className="flex-1 grid grid-cols-3 gap-6 min-h-0">
-        {/* Left Column - Waveform and Stats */}
-        <div className="col-span-2 flex flex-col gap-6">
+      <div className="flex-1 flex flex-col gap-6 min-h-0">
           {/* Live Audio Visualizer */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -248,22 +245,6 @@ export default function LiveCallMonitor({ call }: LiveCallMonitorProps) {
               </Card>
             </div>
           </motion.div>
-        </div>
-
-        {/* Right Column - Live Transcript */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-          className="flex flex-col min-h-0"
-        >
-          <Card className="flex-1 p-6 bg-white/[0.02] backdrop-blur-xl border-white/[0.06] hover:border-white/[0.08] transition-all duration-300 flex flex-col">
-            <h3 className="text-lg font-medium text-white/90 mb-4">
-              Canlı Transkript
-            </h3>
-            <LiveTranscript call={call} />
-          </Card>
-        </motion.div>
       </div>
     </div>
   );

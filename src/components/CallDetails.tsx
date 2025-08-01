@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import SentimentChart from './SentimentChart';
 import EmotionRadar from './EmotionRadar';
 import AudioPlayer from './AudioPlayer';
-import TranscriptViewer from './TranscriptViewer';
 import PerformanceMetrics from './PerformanceMetrics';
 import ActionItems from './ActionItems';
 import RiskAssessment from './RiskAssessment';
@@ -185,13 +184,6 @@ export default function CallDetails({ call }: CallDetailsProps) {
               Analitik
             </TabsTrigger>
             <TabsTrigger 
-              value="transcript"
-              className="data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-lg text-white/60 transition-all duration-200"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Transkript
-            </TabsTrigger>
-            <TabsTrigger 
               value="performance"
               className="data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-lg text-white/60 transition-all duration-200"
             >
@@ -273,7 +265,7 @@ export default function CallDetails({ call }: CallDetailsProps) {
                 <h3 className="text-lg font-medium text-white/90 mb-4">
                   Ses Kaydı
                 </h3>
-                <AudioPlayer audioUrl={call.audioUrl} transcript={call.transcript} />
+                <AudioPlayer audioUrl={call.audioUrl} transcript={undefined} />
               </Card>
             )}
           </TabsContent>
@@ -419,35 +411,6 @@ export default function CallDetails({ call }: CallDetailsProps) {
             </Card>
           </TabsContent>
 
-          {/* Transcript Tab */}
-          <TabsContent value="transcript" className="space-y-6">
-            <Card className="bg-white/[0.02] backdrop-blur-xl border-white/[0.06] p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-medium text-white/90">
-                  Çağrı Transkripsiyonu
-                </h3>
-                <div className="flex items-center gap-2 text-sm text-white/50">
-                  <FileText className="h-4 w-4" />
-                  <span>{call.transcript?.segments.length || 0} segment</span>
-                  <span className="text-white/20">•</span>
-                  <span>{call.transcript?.fullText?.split(' ').length || 0} kelime</span>
-                </div>
-              </div>
-              
-              {call.transcript && call.transcript.segments.length > 0 ? (
-                <TranscriptViewer transcript={call.transcript} />
-              ) : (
-                <div className="text-center py-12">
-                  <div className="h-16 w-16 rounded-full bg-white/[0.03] backdrop-blur-xl flex items-center justify-center mx-auto mb-4 border border-white/[0.06]">
-                    <FileText className="h-8 w-8 text-white/20" />
-                  </div>
-                  <p className="text-white/40 text-sm">
-                    Bu çağrı için transkript mevcut değil
-                  </p>
-                </div>
-              )}
-            </Card>
-          </TabsContent>
 
           {/* Performance Tab */}
           <TabsContent value="performance" className="space-y-6">
