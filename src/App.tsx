@@ -77,14 +77,16 @@ function App() {
           const allCalls = Array.from(callMap.values());
           setCalls(allCalls);
           
-          // Only analyze NEW calls without analytics
-          const callsNeedingAnalysis = newCalls.filter(call => 
-            !call.analytics && call.duration && call.duration > 0
-          );
+          // Only analyze the LATEST completed call without analytics
+          const completedCallsWithoutAnalytics = newCalls
+            .filter(call => !call.analytics && call.duration && call.duration > 0 && call.status === 'completed')
+            .sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
           
-          if (callsNeedingAnalysis.length > 0) {
-            console.log(`Analyzing ${callsNeedingAnalysis.length} new calls`);
-            await processCallsWithoutAnalytics(callsNeedingAnalysis);
+          if (completedCallsWithoutAnalytics.length > 0) {
+            // Only analyze the most recent one
+            const latestCall = completedCallsWithoutAnalytics[0];
+            console.log(`Analyzing latest completed call: ${latestCall.id}`);
+            await processCallsWithoutAnalytics([latestCall]);
           }
         }
       } catch (error) {
@@ -131,9 +133,8 @@ function App() {
       
       console.log(`Found ${callsToAnalyze.length} calls to analyze`);
       
-      // RATE LIMITING: Only analyze 1 call at a time to avoid 429 errors
-      const MAX_CALLS_TO_ANALYZE = 1;
-      const limitedCalls = callsToAnalyze.slice(0, MAX_CALLS_TO_ANALYZE);
+      // ONLY analyze the single most recent call
+      const limitedCalls = callsToAnalyze.slice(0, 1);
       
       if (limitedCalls.length < callsToAnalyze.length) {
         console.warn(`Rate limiting: Only analyzing ${limitedCalls.length} of ${callsToAnalyze.length} calls`);
