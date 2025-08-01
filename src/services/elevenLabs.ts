@@ -1,24 +1,27 @@
 import { CallData, Transcript, TranscriptSegment, CallJourneyStep } from '../types';
-import { supabaseService } from './supabase';
+import { ConversationData, ConversationEndEvent } from '../types/elevenlabs';
+import { elevenLabsRateLimiter, rateLimitedFetch } from '../utils/rateLimiter';
+
+// ElevenLabs API Key - embedded for demo purposes
+const ELEVENLABS_API_KEY = 'sk_cce48ee5e6aa1ee45c0e8c4c0c37afe1c8833f93e72bdd07';
+
+interface AudioProcessor {
+  source: AudioBufferSourceNode;
+  isPlaying: boolean;
+}
 
 class ElevenLabsService {
-  private apiKey: string = 'sk_164fb10a4ec892ed584b839541b4fe34dc7f8e01cf381b70';
-  private wsConnections: Map<string, WebSocket> = new Map(); // Multiple WS for multiple agents
-  private activeConversations: Map<string, CallData> = new Map(); // Track all active conversations
-  private conversationHierarchy: Map<string, string[]> = new Map(); // Parent -> Children mapping
-  private callbacks = {
-    onCallStarted: [] as Array<(call: CallData) => void>,
-    onCallEnded: [] as Array<(call: CallData) => void>,
-    onTranscriptUpdate: [] as Array<(callId: string, transcript: Transcript) => void>,
-    onError: [] as Array<(error: Error) => void>,
-    onAgentTransfer: [] as Array<(fromCall: CallData, toCall: CallData, reason: string) => void>,
-    onConversationMerged: [] as Array<(mergedCall: CallData) => void>,
-    onAudioChunk: [] as Array<(conversationId: string, audioData: ArrayBuffer, speaker: 'agent' | 'customer') => void>,
-  };
-  
+  private apiKey: string = ELEVENLABS_API_KEY;
+  private activeConversations = new Map<string, CallData>();
+  private audioProcessors = new Map<string, AudioProcessor>();
   private audioContext: AudioContext | null = null;
-  private audioQueue: Map<string, Array<{ buffer: ArrayBuffer; speaker: 'agent' | 'customer' }>> = new Map();
-  private audioProcessors: Map<string, any> = new Map();
+  private lastSeenConversations = new Set<string>();
+  private conversationChain = new Map<string, string[]>(); // parentId -> [childIds]
+  private conversationParent = new Map<string, string>(); // childId -> parentId
+  
+  constructor() {
+    console.log('ElevenLabsService initialized');
+  }
 
   setApiKey(apiKey: string) {
     this.apiKey = apiKey;
@@ -34,119 +37,114 @@ class ElevenLabsService {
     console.log('Starting ElevenLabs conversation polling...');
     this.startPolling();
     
+    // Also try to establish WebSocket for real-time updates
+    this.connectToMonitoringWebSocket();
+    
     // Load initial history
     this.loadInitialHistory();
-    
-    // DO NOT try to connect WebSockets - they don't work from browser
-    return; // Exit here to prevent WebSocket attempts
   }
 
-  private connectToAgent(agentId: string) {
+  private async initializeWebSocket(agentId: string): Promise<WebSocket | null> {
     try {
-      // ElevenLabs WebSocket endpoint with API key in query
       const wsUrl = `wss://api.elevenlabs.io/v1/convai/conversation/websocket?agent_id=${agentId}&xi_api_key=${this.apiKey}`;
-      console.log(`Connecting to WebSocket for agent: ${agentId}`);
-      
       const ws = new WebSocket(wsUrl);
       
-      ws.onopen = () => {
-        console.log(`Connected to ElevenLabs agent: ${agentId}`);
-        this.wsConnections.set(agentId, ws);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          this.handleWebSocketMessage(data, agentId);
-        } catch (error) {
-          console.error(`Failed to parse WebSocket message for agent ${agentId}:`, error);
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error(`WebSocket error for agent ${agentId}:`, error);
-        this.callbacks.onError.forEach(cb => cb(new Error(`WebSocket connection error for agent ${agentId}`)));
-      };
-
-      ws.onclose = (event) => {
-        console.log(`Disconnected from agent ${agentId}`, event.code, event.reason);
-        this.wsConnections.delete(agentId);
+      return new Promise((resolve) => {
+        ws.onopen = () => {
+          console.log(`WebSocket connected for agent ${agentId}`);
+          resolve(ws);
+        };
         
-        // Auto-reconnect logic
-        if (!event.wasClean && event.code !== 1000) {
-          console.log(`Attempting to reconnect to agent ${agentId} in 5 seconds...`);
+        ws.onerror = (error) => {
+          console.error(`WebSocket error for agent ${agentId}:`, error);
+          resolve(null);
+        };
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            this.handleWebSocketMessage(data, agentId);
+          } catch (error) {
+            console.error('Failed to parse WebSocket message:', error);
+          }
+        };
+        
+        ws.onclose = () => {
+          console.log(`WebSocket closed for agent ${agentId}`);
+          // Attempt to reconnect after 10 seconds
           setTimeout(() => {
-            if (!this.wsConnections.has(agentId)) {
-              this.connectToAgent(agentId);
-            }
-          }, 5000);
-        }
-      };
+            console.log(`Attempting to reconnect WebSocket for agent ${agentId}`);
+            this.initializeWebSocket(agentId);
+          }, 10000);
+        };
+      });
     } catch (error) {
-      console.error(`Failed to connect to agent ${agentId}:`, error);
-      this.callbacks.onError.forEach(cb => cb(error as Error));
+      console.error('Failed to initialize WebSocket:', error);
+      return null;
     }
   }
-
+  
   private connectToMonitoringWebSocket() {
+    if (!this.apiKey) {
+      console.warn('API key not set');
+      return;
+    }
+
     try {
-      // Connect to a general monitoring endpoint (if available)
+      console.log('Attempting to connect to ElevenLabs monitoring WebSocket...');
+      
+      // Try the monitoring endpoint
       const ws = new WebSocket(`wss://api.elevenlabs.io/v1/convai/conversations?xi-api-key=${this.apiKey}`);
       
       ws.onopen = () => {
         console.log('Connected to ElevenLabs monitoring WebSocket');
-        this.wsConnections.set('monitoring', ws);
       };
-
+      
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log('Monitoring WebSocket message:', data);
           this.handleWebSocketMessage(data);
         } catch (error) {
-          console.error('Failed to parse monitoring WebSocket message:', error);
+          console.error('Failed to parse monitoring message:', error);
         }
       };
-
+      
       ws.onerror = (error) => {
-        console.error('Monitoring WebSocket error:', error);
-        this.callbacks.onError.forEach(cb => cb(new Error('Monitoring WebSocket connection error')));
+        console.warn('Monitoring WebSocket error:', error);
       };
-
+      
       ws.onclose = () => {
-        console.log('Disconnected from monitoring WebSocket');
-        this.wsConnections.delete('monitoring');
-        // Attempt to reconnect after 5 seconds
+        console.log('Monitoring WebSocket closed');
+        // Try to reconnect after 5 seconds
         setTimeout(() => this.connectToMonitoringWebSocket(), 5000);
       };
+      
     } catch (error) {
-      console.error('Failed to initialize monitoring WebSocket:', error);
-      this.callbacks.onError.forEach(cb => cb(error as Error));
+      console.error('Failed to connect to monitoring WebSocket:', error);
     }
   }
-
+  
   private handleWebSocketMessage(data: any, agentId?: string) {
-    console.log(`WebSocket message from ${agentId}:`, data.type, data);
+    console.log('WebSocket message:', data);
     
+    // Handle different message types
     switch (data.type) {
       case 'conversation_initiation_metadata':
-      case 'conversation_init':
-      case 'conversation.init':
+      case 'conversation_started':
         this.handleConversationInit(data, agentId);
         break;
-      case 'conversation_started':
-      case 'conversation.started':
-      case 'call_started':
-        this.handleCallStarted(data, agentId);
+      case 'transcript':
+      case 'transcript_update':
+        this.handleTranscriptUpdate(data);
         break;
       case 'conversation_ended':
-      case 'conversation.ended':
-      case 'call_ended':
-        this.handleCallEnded(data, agentId);
+      case 'end_of_conversation':
+        this.handleConversationEnd(data);
         break;
-      case 'transcript_update':
-      case 'transcript.update':
-      case 'transcription':
-        this.handleTranscriptUpdate(data);
+      case 'handoff':
+      case 'agent_handoff':
+        this.handleHandoff(data);
         break;
       case 'agent_transfer':
       case 'transfer':
@@ -157,29 +155,14 @@ class ElevenLabsService {
         this.handleAudioChunk(data);
         break;
       default:
-        console.log('Unknown message type:', data.type, 'Full data:', data);
-        // Try to handle as a general update
-        if (data.conversation_id) {
-          this.handleGeneralUpdate(data, agentId);
-        }
+        console.log('Unknown message type:', data.type);
     }
   }
   
-  private handleGeneralUpdate(data: any, agentId?: string) {
-    // Handle any conversation update
-    if (data.status === 'active' && !this.activeConversations.has(data.conversation_id)) {
-      // New conversation detected
-      this.handleCallStarted({
-        ...data,
-        type: 'conversation_started'
-      }, agentId);
-    }
-  }
-
   private handleConversationInit(data: any, agentId?: string) {
     console.log(`Conversation initiated: ${data.conversation_id} on agent ${agentId}`);
   }
-
+  
   private handleAgentTransfer(data: any) {
     const fromCall = this.activeConversations.get(data.from_conversation_id);
     
@@ -188,186 +171,176 @@ class ElevenLabsService {
       const toCall: CallData = {
         id: data.to_conversation_id,
         conversationId: data.to_conversation_id,
-        parentConversationId: data.from_conversation_id,
-        startTime: new Date(),
         phoneNumber: fromCall.phoneNumber,
         customerName: fromCall.customerName,
-        status: 'active',
-        agentId: data.to_agent_id,
         agentName: data.to_agent_name || 'Specialist Agent',
-        agentType: data.to_agent_type || 'specialist',
-        handoffReason: data.transfer_reason,
-        handoffTimestamp: new Date(),
-        handoffFromAgent: {
-          id: fromCall.agentId,
-          name: fromCall.agentName,
-          type: fromCall.agentType || 'orchestrator'
-        },
-        isPartOfHandoff: true,
-        transcript: {
-          segments: [],
-          fullText: '',
-          confidence: 1.0
-        }
+        startTime: new Date(),
+        status: 'active',
+        transcript: { segments: [], fullText: '' },
+        tags: [...fromCall.tags],
+        handoffFromId: data.from_conversation_id,
+        callJourney: []
       };
-
-      // Update from call status
-      fromCall.status = 'transferred';
-      fromCall.handoffToAgent = {
-        id: data.to_agent_id,
-        name: data.to_agent_name || 'Specialist Agent',
-        type: data.to_agent_type || 'specialist'
-      };
-
-      // Track the handoff
-      this.activeConversations.set(toCall.conversationId, toCall);
       
-      // Update hierarchy
-      const parentId = fromCall.parentConversationId || fromCall.conversationId;
-      const children = this.conversationHierarchy.get(parentId) || [];
-      children.push(toCall.conversationId);
-      this.conversationHierarchy.set(parentId, children);
-
+      // Update conversation chain
+      this.conversationParent.set(data.to_conversation_id, data.from_conversation_id);
+      const existingChildren = this.conversationChain.get(data.from_conversation_id) || [];
+      this.conversationChain.set(data.from_conversation_id, [...existingChildren, data.to_conversation_id]);
+      
+      // Mark the "from" call as having a handoff
+      fromCall.handoffTimestamp = new Date();
+      fromCall.handoffToId = data.to_conversation_id;
+      
+      // Store the new call
+      this.activeConversations.set(data.to_conversation_id, toCall);
+      
+      // Notify about handoff
+      this.callbacks.onHandoff.forEach(cb => cb(data.from_conversation_id, data.to_conversation_id));
+      
+      console.log(`Agent transfer: ${data.from_conversation_id} -> ${data.to_conversation_id}`);
+    }
+  }
+  
+  private handleHandoff(data: any) {
+    console.log('Handoff event:', data);
+    
+    const fromId = data.from_conversation_id || data.conversationId;
+    const toId = data.to_conversation_id || data.targetConversationId;
+    
+    if (fromId && toId) {
+      // Update conversation chain
+      this.conversationParent.set(toId, fromId);
+      const existingChildren = this.conversationChain.get(fromId) || [];
+      this.conversationChain.set(fromId, [...existingChildren, toId]);
+      
       // Notify callbacks
-      this.callbacks.onAgentTransfer.forEach(cb => cb(fromCall, toCall, data.transfer_reason));
+      this.callbacks.onHandoff.forEach(cb => cb(fromId, toId));
     }
   }
-
-  private handleCallStarted(data: any, agentId?: string) {
-    console.log('Call started event:', data, 'agentId:', agentId);
+  
+  private handleConversationEnd(data: ConversationEndEvent) {
+    console.log('Conversation ended:', data);
     
-    const call: CallData = {
-      id: data.conversation_id || `conv_${Date.now()}`,
-      conversationId: data.conversation_id || `conv_${Date.now()}`,
-      startTime: data.start_time ? new Date(data.start_time) : new Date(),
-      phoneNumber: data.phone_number || data.caller_phone_number || 'Unknown',
-      customerName: data.customer_name || data.caller_name || 'Müşteri',
-      status: 'active',
-      agentId: agentId || data.agent_id || 'unknown',
-      agentName: this.getAgentName(agentId || data.agent_id),
-      agentType: data.agent_type || this.determineAgentType(data.agent_name || ''),
-      transcript: {
-        segments: [],
-        fullText: '',
-        confidence: 1.0
+    const conversationId = data.conversation_id;
+    const call = this.activeConversations.get(conversationId);
+    
+    if (call) {
+      call.endTime = new Date();
+      call.status = 'completed';
+      
+      if (data.end_of_conversation_metadata) {
+        const metadata = data.end_of_conversation_metadata;
+        if (metadata.call_duration) {
+          call.duration = metadata.call_duration;
+        }
+        if (metadata.customer_name) {
+          call.customerName = metadata.customer_name;
+        }
+        if (metadata.tags) {
+          call.tags = [...new Set([...call.tags, ...metadata.tags])];
+        }
       }
-    };
-
-    // Store the active conversation
-    this.activeConversations.set(call.conversationId, call);
-
-    // If this is the first call in a chain, initialize hierarchy
-    if (!call.parentConversationId) {
-      this.conversationHierarchy.set(call.conversationId, []);
-    }
-
-    this.callbacks.onCallStarted.forEach(cb => cb(call));
-    
-    // Supabase'e kaydet
-    supabaseService.upsertCall(call).catch(err => 
-      console.error('Failed to save call to Supabase:', err)
-    );
-  }
-
-  private handleCallEnded(data: any, agentId?: string) {
-    const activeCall = this.activeConversations.get(data.conversation_id);
-    
-    if (activeCall) {
-      // Update the active call with end data
-      activeCall.endTime = new Date(data.end_time || new Date());
-      activeCall.duration = data.duration;
-      activeCall.audioUrl = data.audio_url;
-      activeCall.status = 'completed';
-      activeCall.transcript = data.transcript || activeCall.transcript;
-
-      // Check if this is part of a handoff chain
-      if (activeCall.parentConversationId || this.hasChildConversations(activeCall.conversationId)) {
-        // This call is part of a handoff chain
-        this.handleHandoffChainCompletion(activeCall);
-      } else {
-        // Simple call completion
-        this.callbacks.onCallEnded.forEach(cb => cb(activeCall));
-        
-        // Supabase'e güncelle
-        supabaseService.upsertCall(activeCall).catch(err => 
-          console.error('Failed to update call in Supabase:', err)
-        );
+      
+      // Calculate duration if not provided
+      if (!call.duration && call.startTime && call.endTime) {
+        call.duration = Math.floor((call.endTime.getTime() - call.startTime.getTime()) / 1000);
       }
-
-      // Remove from active conversations
-      this.activeConversations.delete(data.conversation_id);
-    } else {
-      // Fallback for calls we didn't track from the start
-      const call: CallData = {
-        id: data.conversation_id,
-        conversationId: data.conversation_id,
-        startTime: new Date(data.start_time),
-        endTime: new Date(data.end_time),
-        duration: data.duration,
-        phoneNumber: data.phone_number || 'Unknown',
-        customerName: data.customer_name,
-        audioUrl: data.audio_url,
-        status: 'completed',
-        agentId: agentId || data.agent_id,
-        agentName: data.agent_name || 'AI Agent',
-        agentType: data.agent_type || this.determineAgentType(data.agent_name),
-        transcript: data.transcript
-      };
-
+      
+      // Get complete call chain for journey
+      call.callJourney = this.getCompleteCallJourney(conversationId);
+      
+      // Notify callbacks with the complete call chain
+      const completeChain = this.getCompleteCallChain(conversationId);
       this.callbacks.onCallEnded.forEach(cb => cb(call));
       
-      // Supabase'e kaydet
-      supabaseService.upsertCall(call).catch(err => 
-        console.error('Failed to save completed call to Supabase:', err)
-      );
+      // Clean up
+      this.activeConversations.delete(conversationId);
+    }
+  }
+  
+  private handleTranscriptUpdate(data: any) {
+    const conversationId = data.conversation_id;
+    const call = this.activeConversations.get(conversationId);
+    
+    if (call && data.text) {
+      const segment: TranscriptSegment = {
+        id: Date.now().toString(),
+        speaker: data.role || 'agent',
+        text: data.text,
+        startTime: data.start_time || Date.now() / 1000,
+        endTime: data.end_time || Date.now() / 1000,
+        sentiment: data.sentiment
+      };
+      
+      call.transcript.segments.push(segment);
+      call.transcript.fullText = call.transcript.segments
+        .map(s => `${s.speaker}: ${s.text}`)
+        .join('\n');
+      
+      // Notify callbacks
+      this.callbacks.onTranscriptUpdate.forEach(cb => cb(conversationId, segment));
+    }
+  }
+  
+  async createCall(phoneNumber: string, agentId?: string): Promise<string> {
+    const mockCall: CallData = {
+      id: `call_${Date.now()}`,
+      conversationId: `conv_${Date.now()}`,
+      phoneNumber,
+      customerName: 'Test Customer',
+      agentName: 'AI Agent',
+      startTime: new Date(),
+      status: 'active',
+      transcript: { segments: [], fullText: '' },
+      tags: [],
+      callJourney: []
+    };
+    
+    this.activeConversations.set(mockCall.id, mockCall);
+    this.callbacks.onCallStarted.forEach(cb => cb(mockCall));
+    
+    return mockCall.id;
+  }
+
+  async endCall(conversationId: string): Promise<void> {
+    const call = this.activeConversations.get(conversationId);
+    if (call) {
+      call.status = 'completed';
+      call.endTime = new Date();
+      call.duration = Math.floor((call.endTime.getTime() - call.startTime.getTime()) / 1000);
+      
+      this.callbacks.onCallEnded.forEach(cb => cb(call));
+      this.activeConversations.delete(conversationId);
     }
   }
 
-  private handleTranscriptUpdate(data: any) {
-    const segment: TranscriptSegment = {
-      id: data.segment_id,
-      speaker: data.speaker === 'agent' ? 'agent' : 'customer',
-      text: data.text,
-      startTime: data.start_time,
-      endTime: data.end_time,
-      confidence: data.confidence || 0.95
-    };
-
-    const transcript: Transcript = {
-      segments: [segment],
-      fullText: data.text,
-      confidence: data.confidence || 0.95
-    };
-
-    this.callbacks.onTranscriptUpdate.forEach(cb => 
-      cb(data.conversation_id, transcript)
-    );
-  }
-
-  async getCallAudio(conversationId: string): Promise<string> {
+  async getCallAudio(conversationId: string): Promise<string | null> {
     if (!this.apiKey) {
       throw new Error('API key not set');
     }
 
     try {
-      const response = await fetch(
+      const response = await rateLimitedFetch(
         `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/audio`,
         {
           headers: {
             'xi-api-key': this.apiKey,
           },
-        }
+        },
+        elevenLabsRateLimiter,
+        'audio'
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to get audio: ${response.statusText}`);
+        console.warn(`Failed to get audio: ${response.statusText}`);
+        return null;
       }
 
-      const data = await response.json();
-      return data.audio_url;
+      const blob = await response.blob();
+      return URL.createObjectURL(blob);
     } catch (error) {
       console.error('Failed to get call audio:', error);
-      throw error;
+      return null;
     }
   }
 
@@ -377,13 +350,15 @@ class ElevenLabsService {
     }
 
     try {
-      const response = await fetch(
+      const response = await rateLimitedFetch(
         `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`,
         {
           headers: {
             'xi-api-key': this.apiKey,
           },
-        }
+        },
+        elevenLabsRateLimiter,
+        'transcript'
       );
 
       if (!response.ok) {
@@ -392,38 +367,43 @@ class ElevenLabsService {
       }
 
       const data = await response.json();
-      
-      if (!data.transcript || !Array.isArray(data.transcript)) {
-        return null;
+      console.log('Conversation details:', data);
+
+      // Extract transcript from the response
+      if (data.transcript) {
+        const segments: TranscriptSegment[] = data.transcript.map((item: any, index: number) => ({
+          id: `seg_${index}`,
+          speaker: item.role === 'agent' ? 'agent' : 'customer',
+          text: item.message,
+          startTime: item.timestamp || index * 2,
+          endTime: item.timestamp ? item.timestamp + 2 : (index + 1) * 2,
+          sentiment: item.sentiment
+        }));
+
+        return {
+          segments,
+          fullText: segments.map(s => `${s.speaker}: ${s.text}`).join('\n')
+        };
       }
 
-      // Convert ElevenLabs transcript format to our format
-      const segments: TranscriptSegment[] = [];
-      let fullText = '';
-      let segmentId = 0;
+      // Alternative format
+      if (data.messages) {
+        const segments: TranscriptSegment[] = data.messages.map((item: any, index: number) => ({
+          id: `seg_${index}`,
+          speaker: item.role === 'agent' ? 'agent' : 'customer', 
+          text: item.content || item.text || item.message,
+          startTime: item.timestamp || index * 2,
+          endTime: item.timestamp ? item.timestamp + 2 : (index + 1) * 2,
+          sentiment: item.sentiment
+        }));
 
-      if (data.transcript && Array.isArray(data.transcript)) {
-        data.transcript.forEach((turn: any) => {
-          if (turn.message) {
-            const segment: TranscriptSegment = {
-              id: `seg_${segmentId++}`,
-              speaker: turn.role === 'agent' ? 'agent' : 'customer',
-              text: turn.message,
-              startTime: turn.time_in_call_secs || 0,
-              endTime: turn.time_in_call_secs ? turn.time_in_call_secs + 2 : 2, // Estimate 2 seconds per turn
-              confidence: 0.95
-            };
-            segments.push(segment);
-            fullText += (fullText ? ' ' : '') + turn.message;
-          }
-        });
+        return {
+          segments,
+          fullText: segments.map(s => `${s.speaker}: ${s.text}`).join('\n')
+        };
       }
 
-      return {
-        segments,
-        fullText,
-        confidence: 0.95
-      };
+      return null;
     } catch (error) {
       console.error('Failed to get conversation transcript:', error);
       return null;
@@ -436,13 +416,15 @@ class ElevenLabsService {
     }
 
     try {
-      const response = await fetch(
+      const response = await rateLimitedFetch(
         `https://api.elevenlabs.io/v1/convai/conversations?limit=${limit}`,
         {
           headers: {
             'xi-api-key': this.apiKey,
           },
-        }
+        },
+        elevenLabsRateLimiter,
+        'history'
       );
 
       if (!response.ok) {
@@ -451,70 +433,51 @@ class ElevenLabsService {
 
       const data = await response.json();
       console.log('Conversation history response:', data);
-      
+
       // Handle different response formats
-      const conversations = data.conversations || data.data || [];
+      const conversations = data.conversations || data.data || data;
       
-      const calls = await Promise.all(conversations.map(async (conv: any) => {
-        // console.log('Processing conversation:', conv);
-        
-        // Parse dates safely - handle Unix timestamps in seconds
-        let startTime = new Date();
-        if (conv.start_time_unix_secs) {
-          startTime = new Date(conv.start_time_unix_secs * 1000); // Convert seconds to milliseconds
-        } else if (conv.start_time) {
-          startTime = new Date(conv.start_time);
-        }
-        
-        let endTime = undefined;
-        if (conv.end_time_unix_secs) {
-          endTime = new Date(conv.end_time_unix_secs * 1000);
-        } else if (conv.end_time) {
-          endTime = new Date(conv.end_time);
-        } else if (conv.call_duration_secs && conv.start_time_unix_secs) {
-          // Calculate end time from start + duration
-          endTime = new Date((conv.start_time_unix_secs + conv.call_duration_secs) * 1000);
-        }
-        
-        const call: CallData = {
-          id: conv.conversation_id || conv.id || `conv_${Date.now()}_${Math.random()}`,
-          conversationId: conv.conversation_id || conv.id,
-          startTime: startTime,
-          endTime: endTime,
-          duration: conv.call_duration_secs || conv.duration || 0,
-          phoneNumber: conv.phone_number || conv.caller_phone_number || 'Unknown',
-          customerName: conv.customer_name || conv.caller_name || 'Müşteri',
-          audioUrl: conv.audio_url || conv.recording_url,
-          status: conv.status === 'done' || conv.status === 'completed' ? 'completed' : 'active',
-          agentId: conv.agent_id || 'unknown',
-          agentName: this.getAgentName(conv.agent_id || 'unknown'),
-          agentType: this.determineAgentType(conv.agent_name || ''),
-          transcript: { segments: [], fullText: '', confidence: 1.0 }
-        };
+      if (!Array.isArray(conversations)) {
+        console.warn('Unexpected response format:', data);
+        return [];
+      }
 
-        // Fetch detailed transcript if message_count > 0
-        if (conv.message_count > 0 && conv.conversation_id) {
-          try {
-            const transcript = await this.getConversationTranscript(conv.conversation_id);
-            if (transcript) {
-              call.transcript = transcript;
-            }
-          } catch (err) {
-            console.warn(`Failed to fetch transcript for ${conv.conversation_id}:`, err);
-          }
-        }
-
-        return call;
+      return conversations.map((conv: any) => ({
+        id: conv.id || conv.conversation_id,
+        conversationId: conv.id || conv.conversation_id,
+        phoneNumber: conv.metadata?.phone_number || conv.phone_number || 'Unknown',
+        customerName: conv.metadata?.customer_name || conv.customer_name || null,
+        agentName: conv.metadata?.agent_name || conv.agent_name || 'AI Agent',
+        startTime: new Date(conv.created_at || conv.start_time || conv.timestamp),
+        endTime: conv.ended_at ? new Date(conv.ended_at) : undefined,
+        status: conv.status === 'active' ? 'active' : 'completed',
+        duration: conv.duration || (conv.ended_at && conv.created_at ? 
+          Math.floor((new Date(conv.ended_at).getTime() - new Date(conv.created_at).getTime()) / 1000) : 
+          undefined),
+        transcript: { segments: [], fullText: '' },
+        tags: conv.metadata?.tags || conv.tags || [],
+        audioUrl: conv.audio_url,
+        handoffFromId: conv.metadata?.handoff_from_id,
+        handoffToId: conv.metadata?.handoff_to_id,
+        handoffTimestamp: conv.metadata?.handoff_timestamp ? new Date(conv.metadata.handoff_timestamp) : undefined,
+        callJourney: []
       }));
-
-      return calls;
     } catch (error) {
       console.error('Failed to get conversation history:', error);
-      throw error;
+      return [];
     }
   }
 
-  // Event listeners
+  // Callback management
+  private callbacks = {
+    onCallStarted: [] as ((call: CallData) => void)[],
+    onCallEnded: [] as ((call: CallData) => void)[],
+    onCallUpdated: [] as ((call: CallData) => void)[],
+    onTranscriptUpdate: [] as ((conversationId: string, segment: TranscriptSegment) => void)[],
+    onAudioData: [] as ((conversationId: string, audioData: ArrayBuffer, speaker: 'agent' | 'customer') => void)[],
+    onHandoff: [] as ((fromId: string, toId: string) => void)[]
+  };
+
   onCallStarted(callback: (call: CallData) => void) {
     this.callbacks.onCallStarted.push(callback);
   }
@@ -523,157 +486,82 @@ class ElevenLabsService {
     this.callbacks.onCallEnded.push(callback);
   }
 
-  onTranscriptUpdate(callback: (callId: string, transcript: Transcript) => void) {
+  onCallUpdated(callback: (call: CallData) => void) {
+    this.callbacks.onCallUpdated.push(callback);
+  }
+
+  onTranscriptUpdate(callback: (conversationId: string, segment: TranscriptSegment) => void) {
     this.callbacks.onTranscriptUpdate.push(callback);
   }
 
-  onError(callback: (error: Error) => void) {
-    this.callbacks.onError.push(callback);
+  onAudioData(callback: (conversationId: string, audioData: ArrayBuffer, speaker: 'agent' | 'customer') => void) {
+    this.callbacks.onAudioData.push(callback);
   }
 
-  private getAgentName(agentId: string): string {
-    // Map agent IDs to friendly names
-    const agentNames: Record<string, string> = {
-      'agent_2401k1gvpfa2f61bjd2de7sr5xpb': 'Turkcell Orkestratör',
-      'agent_8601k1gwxk5vf6ga8nphd7ksd85w': 'Turkcell Müşteri Destek',
-      'agent_4801k1j0zt4nfn5t5q9tqhrzhj0k': 'Turkcell Teknik Destek',
-      'agent_9401k1j14dpne7kr0kzr8a7cj29x': 'Turkcell Satış Uzmanı'
-    };
-    
-    return agentNames[agentId] || agentId;
+  onHandoff(callback: (fromId: string, toId: string) => void) {
+    this.callbacks.onHandoff.push(callback);
   }
 
-  private determineAgentType(agentName: string): 'orchestrator' | 'specialist' | 'support' | 'sales' | 'technical' {
-    const name = agentName.toLowerCase();
-    if (name.includes('orchestrator') || name.includes('orkestratör') || name.includes('router')) return 'orchestrator';
-    if (name.includes('support') || name.includes('destek') || name.includes('müşteri')) return 'support';
-    if (name.includes('sales') || name.includes('satış')) return 'sales';
-    if (name.includes('technical') || name.includes('teknik')) return 'technical';
-    return 'specialist';
+  getActiveCall(conversationId: string): CallData | null {
+    return this.activeConversations.get(conversationId) || null;
   }
 
-  private hasChildConversations(conversationId: string): boolean {
-    const children = this.conversationHierarchy.get(conversationId);
-    return children ? children.length > 0 : false;
+  getAllActiveCalls(): CallData[] {
+    return Array.from(this.activeConversations.values());
   }
 
-  private handleHandoffChainCompletion(completedCall: CallData) {
-    // Find the root conversation
-    const rootId = this.findRootConversation(completedCall.conversationId);
-    const allCallsInChain = this.getAllCallsInChain(rootId);
-
-    // Check if all calls in the chain are completed
-    const allCompleted = allCallsInChain.every(call => 
-      call.status === 'completed' || call.status === 'transferred'
-    );
-
-    if (allCompleted) {
-      // Merge all calls into a comprehensive call data
-      const mergedCall = this.mergeCallChain(allCallsInChain);
-      this.callbacks.onConversationMerged.forEach(cb => cb(mergedCall));
-    }
-  }
-
+  // Helper methods for call chain management
   private findRootConversation(conversationId: string): string {
-    const activeCall = this.activeConversations.get(conversationId);
-    if (!activeCall || !activeCall.parentConversationId) {
-      return conversationId;
+    let current = conversationId;
+    while (this.conversationParent.has(current)) {
+      current = this.conversationParent.get(current)!;
     }
-    return this.findRootConversation(activeCall.parentConversationId);
+    return current;
   }
-
-  private getAllCallsInChain(rootId: string): CallData[] {
-    const calls: CallData[] = [];
+  
+  private getAllCallsInChain(rootId: string): string[] {
+    const chain: string[] = [rootId];
     const queue = [rootId];
-
+    
     while (queue.length > 0) {
-      const currentId = queue.shift()!;
-      const call = this.activeConversations.get(currentId);
-      
-      if (call) {
-        calls.push(call);
-      }
-
-      const children = this.conversationHierarchy.get(currentId) || [];
-      queue.push(...children);
+      const current = queue.shift()!;
+      const children = this.conversationChain.get(current) || [];
+      children.forEach(child => {
+        if (!chain.includes(child)) {
+          chain.push(child);
+          queue.push(child);
+        }
+      });
     }
-
-    return calls;
+    
+    return chain;
   }
-
-  private mergeCallChain(calls: CallData[]): CallData {
-    // Sort calls by start time
-    const sortedCalls = calls.sort((a, b) => 
-      a.startTime.getTime() - b.startTime.getTime()
-    );
-
-    const firstCall = sortedCalls[0];
-    const lastCall = sortedCalls[sortedCalls.length - 1];
-
-    // Build call journey
-    const callJourney: CallJourneyStep[] = sortedCalls.map(call => ({
-      agentId: call.agentId,
-      agentName: call.agentName,
-      agentType: call.agentType || 'specialist',
-      startTime: call.startTime,
-      endTime: call.endTime,
-      duration: call.duration || 0,
-      handoffReason: call.handoffReason,
-      performance: {
-        score: call.analytics?.agentPerformance?.overallScore || 0,
-        highlights: call.analytics?.agentPerformance?.strengths || [],
-        issues: call.analytics?.agentPerformance?.improvements || []
-      }
-    }));
-
-    // Merge transcripts
-    const mergedTranscript: Transcript = {
-      segments: [],
-      fullText: '',
-      confidence: 1.0
-    };
-
-    sortedCalls.forEach(call => {
-      if (call.transcript) {
-        mergedTranscript.segments.push(...call.transcript.segments);
-        mergedTranscript.fullText += (mergedTranscript.fullText ? ' ' : '') + call.transcript.fullText;
+  
+  private getCompleteCallJourney(conversationId: string): CallJourneyStep[] {
+    const journey: CallJourneyStep[] = [];
+    const rootId = this.findRootConversation(conversationId);
+    const chainIds = this.getAllCallsInChain(rootId);
+    
+    // Build journey from the chain
+    chainIds.forEach(id => {
+      const call = this.activeConversations.get(id);
+      if (call) {
+        journey.push({
+          id,
+          agentName: call.agentName,
+          startTime: call.startTime,
+          endTime: call.endTime,
+          duration: call.duration,
+          sentiment: call.analytics?.sentiment.overall,
+          handoffReason: this.conversationParent.has(id) ? 'Escalation' : undefined
+        });
       }
     });
-
-    // Create merged call data
-    const mergedCall: CallData = {
-      id: `merged_${firstCall.conversationId}`,
-      conversationId: firstCall.conversationId,
-      startTime: firstCall.startTime,
-      endTime: lastCall.endTime,
-      duration: lastCall.endTime ? 
-        (lastCall.endTime.getTime() - firstCall.startTime.getTime()) / 1000 : 0,
-      phoneNumber: firstCall.phoneNumber,
-      customerName: firstCall.customerName,
-      status: 'completed',
-      agentId: 'multi-agent',
-      agentName: 'Multi-Agent Conversation',
-      agentType: 'orchestrator',
-      callJourney,
-      transcript: mergedTranscript,
-      isPartOfHandoff: true
-    };
-
-    return mergedCall;
+    
+    return journey.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
   }
-
-  // New event listener for agent transfers
-  onAgentTransfer(callback: (fromCall: CallData, toCall: CallData, reason: string) => void) {
-    this.callbacks.onAgentTransfer.push(callback);
-  }
-
-  // New event listener for merged conversations
-  onConversationMerged(callback: (mergedCall: CallData) => void) {
-    this.callbacks.onConversationMerged.push(callback);
-  }
-
-  // Get complete call journey for a conversation
-  async getCallJourney(conversationId: string): Promise<CallData[]> {
+  
+  getCompleteCallChain(conversationId: string): CallData[] {
     const rootId = this.findRootConversation(conversationId);
     return this.getAllCallsInChain(rootId);
   }
@@ -691,78 +579,50 @@ class ElevenLabsService {
         bytes[i] = binaryString.charCodeAt(i);
       }
       
-      // Initialize audio context if needed
-      if (!this.audioContext) {
-        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      
-      // Queue the audio chunk
-      if (!this.audioQueue.has(conversationId)) {
-        this.audioQueue.set(conversationId, []);
-      }
-      this.audioQueue.get(conversationId)!.push({ buffer: bytes.buffer, speaker });
-      
       // Notify listeners
-      this.callbacks.onAudioChunk.forEach(cb => cb(conversationId, bytes.buffer, speaker));
-      
-      // Process audio queue
-      this.processAudioQueue(conversationId);
+      this.callbacks.onAudioData.forEach(cb => 
+        cb(conversationId, bytes.buffer, speaker)
+      );
     }
   }
 
-  private async processAudioQueue(conversationId: string) {
-    const queue = this.audioQueue.get(conversationId);
-    if (!queue || queue.length === 0 || !this.audioContext) return;
-    
-    // Get or create audio processor for this conversation
-    let processor = this.audioProcessors.get(conversationId);
-    if (!processor) {
-      processor = {
-        isPlaying: false,
-        nextStartTime: 0
-      };
-      this.audioProcessors.set(conversationId, processor);
+  // Process and play audio chunks
+  async processAudioChunk(conversationId: string, audioData: ArrayBuffer, speaker: 'agent' | 'customer') {
+    if (!this.audioContext) {
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     
-    if (processor.isPlaying) return;
-    processor.isPlaying = true;
-    
-    while (queue.length > 0) {
-      const { buffer, speaker } = queue.shift()!;
+    try {
+      // Decode audio data
+      const audioBuffer = await this.audioContext.decodeAudioData(audioData);
       
-      try {
-        // Decode audio data
-        const audioBuffer = await this.audioContext.decodeAudioData(buffer.slice(0));
-        
-        // Create buffer source
+      // Create or get processor for this conversation
+      let processor = this.audioProcessors.get(conversationId);
+      if (!processor || !processor.isPlaying) {
         const source = this.audioContext.createBufferSource();
         source.buffer = audioBuffer;
+        source.connect(this.audioContext.destination);
+        source.start(0);
         
-        // Add some processing based on speaker
-        const gainNode = this.audioContext.createGain();
-        gainNode.gain.value = speaker === 'agent' ? 0.8 : 1.0;
+        processor = { source, isPlaying: true };
+        this.audioProcessors.set(conversationId, processor);
         
-        // Connect nodes
-        source.connect(gainNode);
-        gainNode.connect(this.audioContext.destination);
-        
-        // Schedule playback
-        const startTime = Math.max(this.audioContext.currentTime, processor.nextStartTime);
-        source.start(startTime);
-        
-        // Update next start time
-        processor.nextStartTime = startTime + audioBuffer.duration;
-        
-        // Wait for this chunk to finish
-        await new Promise(resolve => {
-          source.onended = resolve;
-        });
-      } catch (error) {
-        console.error('Error processing audio chunk:', error);
+        source.onended = () => {
+          processor!.isPlaying = false;
+        };
       }
+    } catch (error) {
+      console.error('Failed to process audio chunk:', error);
     }
-    
-    processor.isPlaying = false;
+  }
+
+  // Stop audio playback for a conversation
+  stopAudio(conversationId: string) {
+    const processor = this.audioProcessors.get(conversationId);
+    if (processor && processor.isPlaying) {
+      processor.source.stop();
+      processor.isPlaying = false;
+    }
   }
 
   // Get live audio stream for a conversation
@@ -772,19 +632,21 @@ class ElevenLabsService {
     }
     
     const destination = this.audioContext.createMediaStreamDestination();
-    
-    // This would connect to the live audio processing
-    // For now, return the stream that can be used for visualization
     return destination.stream;
   }
 
-  // New event listener for audio chunks
-  onAudioChunk(callback: (conversationId: string, audioData: ArrayBuffer, speaker: 'agent' | 'customer') => void) {
-    this.callbacks.onAudioChunk.push(callback);
+  // Connection status management
+  isConnected(): boolean {
+    return this.pollingInterval !== null;
   }
 
+  // Polling management
   private pollingInterval: NodeJS.Timeout | null = null;
-  private lastSeenConversations: Set<string> = new Set();
+  private lastPollTime: number = 0;
+  private pollErrors: number = 0;
+  private backoffDelay: number = 10000; // Start with 10 seconds to avoid initial rate limits
+  private readonly MAX_BACKOFF_DELAY = 60000; // Max 60 seconds
+  private readonly RATE_LIMIT_THRESHOLD = 5; // Number of 429s before backing off significantly
 
   private async loadInitialHistory() {
     try {
@@ -801,10 +663,25 @@ class ElevenLabsService {
   }
 
   private startPolling() {
-    // Poll every 3 seconds for new conversations
-    this.pollingInterval = setInterval(async () => {
+    // Use exponential backoff with jitter
+    const pollWithBackoff = async () => {
+      const now = Date.now();
+      const timeSinceLastPoll = now - this.lastPollTime;
+      
+      // Ensure minimum time between polls
+      if (timeSinceLastPoll < this.backoffDelay) {
+        const waitTime = this.backoffDelay - timeSinceLastPoll;
+        setTimeout(pollWithBackoff, waitTime);
+        return;
+      }
+
       try {
+        this.lastPollTime = now;
         const conversations = await this.getConversationHistory(10);
+        
+        // Reset backoff on success
+        this.pollErrors = 0;
+        this.backoffDelay = Math.max(10000, this.backoffDelay * 0.9); // Gradually reduce backoff, minimum 10 seconds
         
         conversations.forEach(conv => {
           const isNew = !this.lastSeenConversations.has(conv.id);
@@ -817,30 +694,50 @@ class ElevenLabsService {
             if (isActive) {
               // New active call
               this.callbacks.onCallStarted.forEach(cb => cb(conv));
-              // Don't save here - let App.tsx handle database saves
             } else {
               // Completed call we haven't seen
               this.callbacks.onCallEnded.forEach(cb => cb(conv));
-              // Don't save here - let App.tsx handle database saves
             }
           } else if (!isActive && this.activeConversations.has(conv.id)) {
             // Previously active call that ended
             console.log('Conversation ended:', conv.id);
             this.callbacks.onCallEnded.forEach(cb => cb(conv));
             this.activeConversations.delete(conv.id);
-            // Don't save here - let App.tsx handle database saves
           }
         });
-      } catch (error) {
+        
+      } catch (error: any) {
         console.error('Polling error:', error);
+        this.pollErrors++;
+        
+        // Check if it's a rate limit error
+        if (error.message?.includes('429') || error.message?.includes('Too Many Requests')) {
+          console.warn('Rate limit hit, backing off...');
+          // Exponential backoff for rate limits
+          this.backoffDelay = Math.min(this.backoffDelay * 2, this.MAX_BACKOFF_DELAY);
+          
+          // Add jitter to prevent thundering herd
+          const jitter = Math.random() * 5000; // 0-5 seconds jitter
+          this.backoffDelay += jitter;
+        } else if (this.pollErrors > this.RATE_LIMIT_THRESHOLD) {
+          // Too many errors, increase backoff
+          this.backoffDelay = Math.min(this.backoffDelay * 1.5, this.MAX_BACKOFF_DELAY);
+        }
       }
-    }, 3000); // Back to 3 seconds
+      
+      // Schedule next poll
+      this.pollingInterval = setTimeout(pollWithBackoff, this.backoffDelay);
+    };
+    
+    // Start polling with initial delay
+    console.log(`Starting polling with ${this.backoffDelay}ms interval`);
+    this.pollingInterval = setTimeout(pollWithBackoff, this.backoffDelay);
   }
 
   disconnect() {
     // Stop polling
     if (this.pollingInterval) {
-      clearInterval(this.pollingInterval);
+      clearTimeout(this.pollingInterval);
       this.pollingInterval = null;
     }
     
@@ -849,17 +746,15 @@ class ElevenLabsService {
       this.audioContext.close();
       this.audioContext = null;
     }
-    this.audioQueue.clear();
-    this.audioProcessors.clear();
     
-    this.wsConnections.forEach(ws => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-    });
-    this.wsConnections.clear();
+    // Clear all data
     this.activeConversations.clear();
-    this.conversationHierarchy.clear();
+    this.audioProcessors.clear();
+    this.lastSeenConversations.clear();
+    this.conversationChain.clear();
+    this.conversationParent.clear();
+    
+    console.log('ElevenLabs service disconnected');
   }
 }
 

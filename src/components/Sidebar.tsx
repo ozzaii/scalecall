@@ -43,7 +43,10 @@ export default function Sidebar({ calls, activeCall, onCallSelect }: SidebarProp
     <div className="w-96 glass-premium flex flex-col relative">
       {/* Header */}
       <div className="p-6 border-b border-white/[0.06]">
-        <h1 className="text-2xl font-bold text-white/90 mb-1">
+        <h1 
+          className="text-2xl font-bold text-white/90 mb-1 cursor-pointer hover:text-white transition-colors duration-200"
+          onClick={() => onCallSelect(null)}
+        >
           Çağrı Analitiği
         </h1>
         <p className="text-sm text-white/40">

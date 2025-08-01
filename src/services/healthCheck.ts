@@ -112,12 +112,12 @@ class HealthCheckService {
     return this.status;
   }
 
-  // Auto health check every 30 seconds
+  // Auto health check every 2 minutes (reduced from 30 seconds to avoid rate limits)
   startAutoCheck() {
     this.checkAllServices();
     setInterval(() => {
       this.checkAllServices();
-    }, 30000);
+    }, 120000); // 2 minutes
   }
 }
 
