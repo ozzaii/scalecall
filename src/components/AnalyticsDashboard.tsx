@@ -1,7 +1,7 @@
-import React from 'react';
+
 import { CallData } from '../types';
 import { Card } from './ui/card';
-import { Phone, Clock, TrendingUp, Users, BarChart3, Activity, Award, Calendar, Sparkles } from 'lucide-react';
+import { Phone, Clock, TrendingUp, BarChart3, Activity, Award, Calendar, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { formatDuration, cn } from '../lib/utils';
 

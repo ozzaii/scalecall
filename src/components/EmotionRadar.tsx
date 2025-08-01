@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { EmotionData } from '../types';
 import { motion } from 'framer-motion';
 

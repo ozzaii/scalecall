@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Transcript } from '../types';
 import { cn } from '../lib/utils';
 import { formatDuration } from '../lib/utils';
@@ -141,15 +141,9 @@ export default function TranscriptViewer({ transcript, audioUrl }: TranscriptVie
                         )}
                       >
                         {segment.speaker === 'agent' ? (
-                          <Bot className={cn(
-                            "h-5 w-5",
-                            segment.speaker === 'agent' ? "text-blue-400" : "text-purple-400"
-                          )} />
+                          <Bot className="h-5 w-5 text-blue-400" />
                         ) : (
-                          <User className={cn(
-                            "h-5 w-5",
-                            segment.speaker === 'agent' ? "text-blue-400" : "text-purple-400"
-                          )} />
+                          <User className="h-5 w-5 text-purple-400" />
                         )}
                       </div>
                       <div>

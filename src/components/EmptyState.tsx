@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Phone, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from './ui/button';

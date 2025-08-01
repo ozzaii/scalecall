@@ -357,8 +357,8 @@ function App() {
 
     return () => {
       elevenLabsService.disconnect();
-      unsubscribeNewCalls?.();
-      unsubscribeCallUpdates?.();
+      unsubscribeNewCalls?.unsubscribe();
+      unsubscribeCallUpdates?.unsubscribe();
     };
   }, []);
 

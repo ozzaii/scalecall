@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { CallData, MultiAgentAnalytics } from '../types';
 import { motion } from 'framer-motion';
-import { Phone, Clock, Calendar, User, Headphones, FileText, BarChart3, Brain, AlertTriangle, GitBranch, Activity, Sparkles } from 'lucide-react';
-import { formatDuration, formatDate, formatTime, getScoreColor, getSentimentColor, cn } from '../lib/utils';
+import { Phone, Clock, Calendar, User, Headphones, FileText, BarChart3, Brain, AlertTriangle, Activity, Sparkles } from 'lucide-react';
+import { formatDuration, formatDate, formatTime, cn } from '../lib/utils';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -461,14 +461,22 @@ export default function CallDetails({ call }: CallDetailsProps) {
 
           {/* Actions Tab */}
           <TabsContent value="actions" className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              {analytics.actionItems.length > 0 && (
-                <ActionItems items={analytics.actionItems} />
-              )}
-              {analytics.riskFactors.length > 0 && (
-                <RiskAssessment risks={analytics.riskFactors} />
-              )}
-            </div>
+            {(analytics.actionItems.length > 0 || analytics.riskFactors.length > 0) ? (
+              <div className="grid grid-cols-2 gap-6">
+                {analytics.actionItems.length > 0 && (
+                  <ActionItems items={analytics.actionItems} />
+                )}
+                {analytics.riskFactors.length > 0 && (
+                  <RiskAssessment risks={analytics.riskFactors} />
+                )}
+              </div>
+            ) : (
+              <Card className="bg-white/[0.02] backdrop-blur-xl border-white/[0.06] p-12">
+                <div className="text-center">
+                  <p className="text-white/40">No action items or risk factors identified</p>
+                </div>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Multi-Agent Tabs */}
@@ -479,7 +487,7 @@ export default function CallDetails({ call }: CallDetailsProps) {
               </TabsContent>
               
               <TabsContent value="comprehensive">
-                <ComprehensiveMetrics metrics={(analytics as MultiAgentAnalytics).comprehensiveMetrics} />
+                <ComprehensiveMetrics analytics={analytics as MultiAgentAnalytics} />
               </TabsContent>
             </>
           )}

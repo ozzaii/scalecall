@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { CallData, CallAnalytics } from '../types';
 import LiveCallMonitor from './LiveCallMonitor';
 import CallDetails from './CallDetails';

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CallData } from '../types';
 import { Phone, Mic, MicOff, Volume2, Users, Clock, TrendingUp } from 'lucide-react';
 import { formatDuration } from '../lib/utils';
@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
-import WaveformVisualizer from './WaveformVisualizer';
 import LiveTranscript from './LiveTranscript';
 import LiveAudioVisualizer from './LiveAudioVisualizer';
 

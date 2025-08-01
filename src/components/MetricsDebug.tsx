@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { CallData } from '../types';
 
 interface Props {

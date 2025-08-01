@@ -1,4 +1,4 @@
-import { CallAnalytics, CallData, MultiAgentAnalytics, ComprehensiveMetrics, ConversationDynamics, DetailedInsight, CriticalMoment, SentimentPoint, EmotionData, Topic, ActionItem, AgentPerformance, RiskFactor, CallJourneyStep } from '../types';
+import { CallAnalytics, CallData, MultiAgentAnalytics, ComprehensiveMetrics, ConversationDynamics, DetailedInsight, CriticalMoment, SentimentPoint, EmotionData, Topic, ActionItem, AgentPerformance, RiskFactor } from '../types';
 
 class GeminiService {
   private apiKey: string = 'AIzaSyARZyERqMaFInsbRKUA0NxOok77syBNzK8';

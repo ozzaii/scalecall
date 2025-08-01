@@ -1,9 +1,8 @@
-import React from 'react';
+
 import { AgentPerformance } from '../types';
 import { Card } from './ui/card';
-import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
-import { Trophy, Target, TrendingUp, AlertCircle, Star, CheckCircle2, Heart, MessageSquare, Lightbulb, Briefcase } from 'lucide-react';
+import { Trophy, Target, TrendingUp, AlertCircle, CheckCircle2, Heart, MessageSquare, Lightbulb, Briefcase } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../lib/utils';
 

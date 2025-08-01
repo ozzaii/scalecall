@@ -43,7 +43,7 @@ export const storageService = {
             endTime: endTime && isFinite(endTime.getTime()) ? endTime : undefined,
             handoffTimestamp: handoffTimestamp && isFinite(handoffTimestamp.getTime()) ? handoffTimestamp : undefined
           };
-        }).filter(call => call !== null);
+        }).filter((call): call is CallData => call !== null);
       }
     } catch (error) {
       console.error('Failed to load calls from localStorage:', error);

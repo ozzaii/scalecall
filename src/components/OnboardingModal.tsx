@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Key, Sparkles, Zap, ArrowRight, Check, Play, Database } from 'lucide-react';
+import { X, Key, Sparkles, Zap, Database } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { elevenLabsService } from '../services/elevenLabs';
 import { geminiService } from '../services/gemini';
-import { cn } from '../lib/utils';
+
 
 interface OnboardingModalProps {
   isOpen: boolean;

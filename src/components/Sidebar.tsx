@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { cn } from '../lib/utils';
 import { CallData } from '../types';
-import { formatTime, formatDate, formatDuration, getSentimentColor } from '../lib/utils';
-import { Phone, PhoneIncoming, PhoneOutgoing, Search, Filter, Clock, TrendingUp, TrendingDown, Minus, Users, GitBranch } from 'lucide-react';
+import { formatTime, formatDate, formatDuration } from '../lib/utils';
+import { Phone, PhoneIncoming, Search, Clock, TrendingUp, TrendingDown, Minus, GitBranch } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from './ui/input';
 import { Button } from './ui/button';

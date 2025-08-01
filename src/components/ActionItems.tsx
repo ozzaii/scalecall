@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ActionItem } from '../types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
-import { Calendar, User, Flag, Clock, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
+import { Calendar, User, Flag, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 

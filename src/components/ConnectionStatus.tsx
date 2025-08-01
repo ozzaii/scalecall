@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Wifi, WifiOff, AlertCircle } from 'lucide-react';
 import { elevenLabsService } from '../services/elevenLabs';
 import { cn } from '../lib/utils';

@@ -1,4 +1,4 @@
-import { CallData, Transcript, TranscriptSegment } from '../types';
+import { CallData, Transcript, TranscriptSegment, CallJourneyStep } from '../types';
 import { supabaseService } from './supabase';
 
 class ElevenLabsService {
@@ -146,7 +146,7 @@ class ElevenLabsService {
       case 'transcript_update':
       case 'transcript.update':
       case 'transcription':
-        this.handleTranscriptUpdate(data, agentId);
+        this.handleTranscriptUpdate(data);
         break;
       case 'agent_transfer':
       case 'transfer':

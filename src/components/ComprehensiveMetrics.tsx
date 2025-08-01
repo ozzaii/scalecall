@@ -1,6 +1,6 @@
-import React from 'react';
+
 import { motion } from 'framer-motion';
-import { ComprehensiveMetrics as Metrics, ConversationDynamics, MultiAgentAnalytics } from '../types';
+import { ComprehensiveMetrics as Metrics, MultiAgentAnalytics } from '../types';
 import { Card } from './ui/card';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
@@ -347,7 +347,8 @@ export default function ComprehensiveMetrics({ analytics }: ComprehensiveMetrics
                 Karşılaştırmalı Performans
               </h3>
               
-              <div className="space-y-6">
+              {comparativePerformance ? (
+                <div className="space-y-6">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Takım Ortalamasına Göre</p>
                   <div className="flex items-center gap-4">
@@ -425,6 +426,11 @@ export default function ComprehensiveMetrics({ analytics }: ComprehensiveMetrics
                   </div>
                 </div>
               </div>
+              ) : (
+                <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                  Karşılaştırma verisi mevcut değil
+                </p>
+              )}
             </Card>
           </motion.div>
         </TabsContent>

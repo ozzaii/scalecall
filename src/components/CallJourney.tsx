@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { motion } from 'framer-motion';
 import { CallJourneyStep } from '../types';
 import { Card } from './ui/card';

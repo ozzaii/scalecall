@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { RiskFactor } from '../types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
