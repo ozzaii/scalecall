@@ -5,6 +5,7 @@ import { Phone, Clock, Calendar, User, Headphones, FileText, BarChart3, Brain, A
 import { formatDuration, formatDate, formatTime, cn } from '../lib/utils';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import SentimentChart from './SentimentChart';
 import EmotionRadar from './EmotionRadar';
@@ -14,6 +15,9 @@ import ActionItems from './ActionItems';
 import RiskAssessment from './RiskAssessment';
 import ComprehensiveMetrics from './ComprehensiveMetrics';
 import CallJourney from './CallJourney';
+import { geminiService } from '../services/gemini';
+import { supabaseService } from '../services/supabase';
+import { toast } from './ui/use-toast';
 
 interface CallDetailsProps {
   call: CallData;
@@ -21,7 +25,39 @@ interface CallDetailsProps {
 
 export default function CallDetails({ call }: CallDetailsProps) {
   const [activeTab, setActiveTab] = useState('overview');
-  const analytics = call.analytics;
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analytics, setAnalytics] = useState(call.analytics);
+
+  const handleAnalyzeCall = async () => {
+    if (isAnalyzing || !call.duration || call.duration <= 0) return;
+    
+    setIsAnalyzing(true);
+    try {
+      // Analyze the call
+      const analysis = await geminiService.analyzeCall(call);
+      
+      // Save to database
+      await supabaseService.saveAnalytics(call.id, call.conversationId, analysis);
+      
+      // Update local state
+      setAnalytics(analysis);
+      call.analytics = analysis;
+      
+      toast({
+        title: "Analiz Tamamlandı",
+        description: "Çağrı başarıyla analiz edildi",
+      });
+    } catch (error) {
+      console.error('Failed to analyze call:', error);
+      toast({
+        title: "Analiz Hatası",
+        description: "Çağrı analiz edilemedi. Lütfen tekrar deneyin.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   if (!analytics) {
     return (
@@ -30,9 +66,28 @@ export default function CallDetails({ call }: CallDetailsProps) {
           <div className="h-20 w-20 rounded-full bg-white/[0.03] backdrop-blur-xl flex items-center justify-center mx-auto border border-white/[0.06]">
             <Brain className="h-10 w-10 text-white/20" />
           </div>
-          <p className="text-white/40 text-sm">
+          <p className="text-white/40 text-sm mb-4">
             Bu çağrı için analiz mevcut değil
           </p>
+          {call.duration && call.duration > 0 && call.status === 'completed' && (
+            <Button
+              onClick={handleAnalyzeCall}
+              disabled={isAnalyzing}
+              className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 hover:from-blue-500/30 hover:to-purple-500/30 border border-white/10 text-white"
+            >
+              {isAnalyzing ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2" />
+                  Analiz Ediliyor...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Çağrıyı Analiz Et
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     );
