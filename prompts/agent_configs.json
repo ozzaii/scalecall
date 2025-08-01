@@ -1,0 +1,60 @@
+{
+  "agents": {
+    "orchestrator": {
+      "id": "agent_orchestrator_turkcell",
+      "name": "Turkcell Orkestratör",
+      "type": "orchestrator",
+      "promptFile": "orchestrator_agent_updated.md"
+    },
+    "support": {
+      "id": "agent_support_turkcell",
+      "name": "Turkcell Müşteri Hizmetleri",
+      "type": "support",
+      "promptFile": "support_agent.md",
+      "capabilities": ["fatura", "ödeme", "borç", "paket_bilgisi", "tl_yükleme"]
+    },
+    "technical": {
+      "id": "agent_technical_turkcell",
+      "name": "Turkcell Teknik Destek",
+      "type": "technical",
+      "promptFile": "technical_agent.md",
+      "capabilities": ["internet", "bağlantı", "modem", "şebeke", "tv_plus"]
+    },
+    "sales": {
+      "id": "agent_sales_turkcell",
+      "name": "Turkcell Satış Uzmanı",
+      "type": "sales",
+      "promptFile": "sales_agent.md",
+      "capabilities": ["yeni_hat", "kampanya", "paket_değişikliği", "tarife"]
+    },
+    "esim": {
+      "id": "agent_esim_turkcell",
+      "name": "Turkcell eSIM Uzmanı",
+      "type": "specialist",
+      "promptFile": "esim_support_agent.md",
+      "capabilities": ["esim", "qr_kod", "dijital_sim", "sim_aktarım", "imei_kayıt"]
+    }
+  },
+  "routing_rules": [
+    {
+      "keywords": ["fatura", "ödeme", "borç", "paket bilgisi", "tl yükleme", "bakiye", "ekstre"],
+      "agent": "support",
+      "priority": 1
+    },
+    {
+      "keywords": ["internet", "bağlantı", "modem", "şebeke", "tv+", "hız", "kopma", "yavaş"],
+      "agent": "technical",
+      "priority": 1
+    },
+    {
+      "keywords": ["yeni hat", "kampanya", "paket değiş", "tarife", "fiyat", "indirim", "teklif"],
+      "agent": "sales",
+      "priority": 1
+    },
+    {
+      "keywords": ["esim", "e-sim", "dijital sim", "qr kod", "gömülü sim", "sim aktarım", "ikinci imei", "telefon değişimi esim"],
+      "agent": "esim",
+      "priority": 1
+    }
+  ]
+}
