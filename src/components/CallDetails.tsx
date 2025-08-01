@@ -71,6 +71,13 @@ export default function CallDetails({ call, onAnalyticsUpdate }: CallDetailsProp
   };
 
   if (!analytics) {
+    console.log('Call details:', { 
+      duration: call.duration, 
+      status: call.status, 
+      hasAnalytics: !!call.analytics,
+      id: call.id 
+    });
+    
     return (
       <div className="h-full flex items-center justify-center bg-black">
         <div className="text-center space-y-4">
@@ -80,25 +87,26 @@ export default function CallDetails({ call, onAnalyticsUpdate }: CallDetailsProp
           <p className="text-white/40 text-sm mb-4">
             Bu çağrı için analiz mevcut değil
           </p>
-          {call.duration && call.duration > 0 && call.status === 'completed' && (
-            <Button
-              onClick={handleAnalyzeCall}
-              disabled={isAnalyzing}
-              className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 hover:from-blue-500/30 hover:to-purple-500/30 border border-white/10 text-white"
-            >
-              {isAnalyzing ? (
-                <>
-                  <div className="h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2" />
-                  Analiz Ediliyor...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Çağrıyı Analiz Et
-                </>
-              )}
-            </Button>
-          )}
+          <div className="text-xs text-white/30 mb-2">
+            Durum: {call.status} | Süre: {call.duration || 0}s
+          </div>
+          <Button
+            onClick={handleAnalyzeCall}
+            disabled={isAnalyzing || !call.duration || call.duration <= 0 || call.status !== 'completed'}
+            className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 hover:from-blue-500/30 hover:to-purple-500/30 border border-white/10 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAnalyzing ? (
+              <>
+                <div className="h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2" />
+                Analiz Ediliyor...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Çağrıyı Analiz Et
+              </>
+            )}
+          </Button>
         </div>
       </div>
     );
