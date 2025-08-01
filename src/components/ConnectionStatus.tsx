@@ -27,10 +27,7 @@ export default function ConnectionStatus() {
     // Check every 2 seconds
     const interval = setInterval(checkConnection, 2000);
 
-    // Listen for errors
-    elevenLabsService.onError(() => {
-      setStatus('disconnected');
-    });
+    // Note: Error handling can be added here when supported
 
     return () => clearInterval(interval);
   }, []);

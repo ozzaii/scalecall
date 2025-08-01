@@ -249,9 +249,9 @@ Lütfen şu analizleri JSON formatında yap:
       },
       emotions: [
         { emotion: 'neutral', intensity: 0.5, timestamp: 0.1, speaker: 'customer' },
-        { emotion: satisfaction > 4 ? 'happy' : satisfaction < 3 ? 'frustrated' : 'calm', intensity: 0.7, timestamp: 0.3, speaker: 'customer' },
-        { emotion: 'professional', intensity: 0.8, timestamp: 0.5, speaker: 'agent' },
-        { emotion: satisfaction > 3 ? 'satisfied' : 'concerned', intensity: 0.6, timestamp: 0.8, speaker: 'customer' }
+        { emotion: satisfaction > 4 ? 'happy' : satisfaction < 3 ? 'angry' : 'neutral', intensity: 0.7, timestamp: 0.3, speaker: 'customer' },
+        { emotion: 'neutral', intensity: 0.8, timestamp: 0.5, speaker: 'agent' },
+        { emotion: satisfaction > 3 ? 'happy' : 'sad', intensity: 0.6, timestamp: 0.8, speaker: 'customer' }
       ],
       topics: [{
         name: topic,
@@ -838,10 +838,10 @@ JSON formatında yanıt ver:
         }
       },
       emotions: this.transformEmotions([
-        { emotion: 'frustrated', intensity: 0.7, timestamp: 0.2, speaker: 'customer' },
-        { emotion: 'empathetic', intensity: 0.8, timestamp: 0.3, speaker: 'agent' },
-        { emotion: 'disappointed', intensity: 0.6, timestamp: 0.6, speaker: 'customer' },
-        { emotion: 'professional', intensity: 0.9, timestamp: 0.8, speaker: 'agent' }
+        { emotion: 'angry', intensity: 0.7, timestamp: 0.2, speaker: 'customer' },
+        { emotion: 'neutral', intensity: 0.8, timestamp: 0.3, speaker: 'agent' },
+        { emotion: 'sad', intensity: 0.6, timestamp: 0.6, speaker: 'customer' },
+        { emotion: 'neutral', intensity: 0.9, timestamp: 0.8, speaker: 'agent' }
       ]),
       topics: this.transformTopics([]),
       actionItems: this.transformActionItems([]),

@@ -28,6 +28,9 @@ export interface CallData {
   };
   isPartOfHandoff?: boolean;
   callJourney?: CallJourneyStep[];
+  tags?: string[];
+  handoffFromId?: string;
+  handoffToId?: string;
 }
 
 export interface Transcript {

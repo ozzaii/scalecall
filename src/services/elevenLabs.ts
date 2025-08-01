@@ -1,6 +1,15 @@
 import { CallData, Transcript, TranscriptSegment, CallJourneyStep } from '../types';
-import { ConversationData, ConversationEndEvent } from '../types/elevenlabs';
 import { elevenLabsRateLimiter, rateLimitedFetch } from '../utils/rateLimiter';
+
+// Type definitions
+interface ConversationEndEvent {
+  conversation_id: string;
+  end_of_conversation_metadata?: {
+    call_duration?: number;
+    customer_name?: string;
+    tags?: string[];
+  };
+}
 
 // ElevenLabs API Key - embedded for demo purposes
 const ELEVENLABS_API_KEY = 'sk_cce48ee5e6aa1ee45c0e8c4c0c37afe1c8833f93e72bdd07';
@@ -173,11 +182,12 @@ class ElevenLabsService {
         conversationId: data.to_conversation_id,
         phoneNumber: fromCall.phoneNumber,
         customerName: fromCall.customerName,
+        agentId: data.to_agent_id || 'agent_specialist',
         agentName: data.to_agent_name || 'Specialist Agent',
         startTime: new Date(),
         status: 'active',
-        transcript: { segments: [], fullText: '' },
-        tags: [...fromCall.tags],
+        transcript: { segments: [], fullText: '', confidence: 0.95 },
+        tags: fromCall.tags ? [...fromCall.tags] : [],
         handoffFromId: data.from_conversation_id,
         callJourney: []
       };
@@ -237,7 +247,7 @@ class ElevenLabsService {
           call.customerName = metadata.customer_name;
         }
         if (metadata.tags) {
-          call.tags = [...new Set([...call.tags, ...metadata.tags])];
+          call.tags = [...new Set([...(call.tags || []), ...metadata.tags])];
         }
       }
       
@@ -249,8 +259,7 @@ class ElevenLabsService {
       // Get complete call chain for journey
       call.callJourney = this.getCompleteCallJourney(conversationId);
       
-      // Notify callbacks with the complete call chain
-      const completeChain = this.getCompleteCallChain(conversationId);
+      // Notify callbacks
       this.callbacks.onCallEnded.forEach(cb => cb(call));
       
       // Clean up
@@ -269,13 +278,16 @@ class ElevenLabsService {
         text: data.text,
         startTime: data.start_time || Date.now() / 1000,
         endTime: data.end_time || Date.now() / 1000,
+        confidence: data.confidence || 0.9,
         sentiment: data.sentiment
       };
       
-      call.transcript.segments.push(segment);
-      call.transcript.fullText = call.transcript.segments
-        .map(s => `${s.speaker}: ${s.text}`)
-        .join('\n');
+      if (call.transcript) {
+        call.transcript.segments.push(segment);
+        call.transcript.fullText = call.transcript.segments
+          .map(s => `${s.speaker}: ${s.text}`)
+          .join('\n');
+      }
       
       // Notify callbacks
       this.callbacks.onTranscriptUpdate.forEach(cb => cb(conversationId, segment));
@@ -288,10 +300,11 @@ class ElevenLabsService {
       conversationId: `conv_${Date.now()}`,
       phoneNumber,
       customerName: 'Test Customer',
+      agentId: agentId || 'agent_default',
       agentName: 'AI Agent',
       startTime: new Date(),
       status: 'active',
-      transcript: { segments: [], fullText: '' },
+      transcript: { segments: [], fullText: '', confidence: 0.95 },
       tags: [],
       callJourney: []
     };
@@ -382,7 +395,8 @@ class ElevenLabsService {
 
         return {
           segments,
-          fullText: segments.map(s => `${s.speaker}: ${s.text}`).join('\n')
+          fullText: segments.map(s => `${s.speaker}: ${s.text}`).join('\n'),
+          confidence: 0.95
         };
       }
 
@@ -399,7 +413,8 @@ class ElevenLabsService {
 
         return {
           segments,
-          fullText: segments.map(s => `${s.speaker}: ${s.text}`).join('\n')
+          fullText: segments.map(s => `${s.speaker}: ${s.text}`).join('\n'),
+          confidence: 0.95
         };
       }
 
@@ -447,6 +462,7 @@ class ElevenLabsService {
         conversationId: conv.id || conv.conversation_id,
         phoneNumber: conv.metadata?.phone_number || conv.phone_number || 'Unknown',
         customerName: conv.metadata?.customer_name || conv.customer_name || null,
+        agentId: conv.agent_id || conv.metadata?.agent_id || 'agent_default',
         agentName: conv.metadata?.agent_name || conv.agent_name || 'AI Agent',
         startTime: new Date(conv.created_at || conv.start_time || conv.timestamp),
         endTime: conv.ended_at ? new Date(conv.ended_at) : undefined,
@@ -454,7 +470,7 @@ class ElevenLabsService {
         duration: conv.duration || (conv.ended_at && conv.created_at ? 
           Math.floor((new Date(conv.ended_at).getTime() - new Date(conv.created_at).getTime()) / 1000) : 
           undefined),
-        transcript: { segments: [], fullText: '' },
+        transcript: { segments: [], fullText: '', confidence: 0.95 },
         tags: conv.metadata?.tags || conv.tags || [],
         audioUrl: conv.audio_url,
         handoffFromId: conv.metadata?.handoff_from_id,
@@ -547,12 +563,12 @@ class ElevenLabsService {
       const call = this.activeConversations.get(id);
       if (call) {
         journey.push({
-          id,
+          agentId: call.agentId,
           agentName: call.agentName,
+          agentType: call.agentType || 'support',
           startTime: call.startTime,
           endTime: call.endTime,
-          duration: call.duration,
-          sentiment: call.analytics?.sentiment.overall,
+          duration: call.duration || 0,
           handoffReason: this.conversationParent.has(id) ? 'Escalation' : undefined
         });
       }
@@ -563,7 +579,17 @@ class ElevenLabsService {
   
   getCompleteCallChain(conversationId: string): CallData[] {
     const rootId = this.findRootConversation(conversationId);
-    return this.getAllCallsInChain(rootId);
+    const chainIds = this.getAllCallsInChain(rootId);
+    const calls: CallData[] = [];
+    
+    chainIds.forEach(id => {
+      const call = this.activeConversations.get(id);
+      if (call) {
+        calls.push(call);
+      }
+    });
+    
+    return calls;
   }
 
   private handleAudioChunk(data: any) {
@@ -587,7 +613,7 @@ class ElevenLabsService {
   }
 
   // Process and play audio chunks
-  async processAudioChunk(conversationId: string, audioData: ArrayBuffer, speaker: 'agent' | 'customer') {
+  async processAudioChunk(conversationId: string, audioData: ArrayBuffer) {
     if (!this.audioContext) {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }

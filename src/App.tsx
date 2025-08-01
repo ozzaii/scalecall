@@ -255,80 +255,42 @@ function App() {
       }
     });
 
-    elevenLabsService.onTranscriptUpdate((callId, transcript) => {
-      setCalls(prev => prev.map(call => 
-        call.id === callId ? { ...call, transcript } : call
-      ));
-      if (activeCall?.id === callId) {
-        setActiveCall(prev => prev ? { ...prev, transcript } : null);
-      }
-    });
-
-    // Handle agent transfers
-    elevenLabsService.onAgentTransfer((fromCall, toCall, reason) => {
-      console.log(`Agent transfer: ${fromCall.agentName} -> ${toCall.agentName} (${reason})`);
-      
-      // Update the from call
-      setCalls(prev => prev.map(c => 
-        c.id === fromCall.id ? fromCall : c
-      ));
-      
-      // Add the to call
-      setCalls(prev => [toCall, ...prev]);
-      
-      // Switch active call to the new agent
-      setActiveCall(toCall);
-
-      toast({
-        title: "Ajan Transferi",
-        description: `${fromCall.agentName} → ${toCall.agentName}`,
-      });
-    });
-
-    // Handle merged conversations (complete handoff chain)
-    elevenLabsService.onConversationMerged(async (mergedCall) => {
-      console.log('Conversation chain completed:', mergedCall);
-      setIsLoading(true);
-      
-      try {
-        // First save merged call to ensure it exists in database
-        await supabaseService.upsertCall(mergedCall);
-        
-        // Analyze the complete conversation with comprehensive metrics
-        const analysis = await geminiService.analyzeMultiAgentCall(mergedCall);
-        
-        // Save analytics to Supabase
-        const savedAnalytics = await supabaseService.saveAnalytics(mergedCall.id, mergedCall.conversationId, analysis);
-        if (savedAnalytics) {
-          console.log('Analytics saved for merged call:', mergedCall.id);
+    elevenLabsService.onTranscriptUpdate((conversationId, segment) => {
+      // Update transcript by adding the new segment
+      setCalls(prev => prev.map(call => {
+        if (call.conversationId === conversationId && call.transcript) {
+          const updatedTranscript = {
+            ...call.transcript,
+            segments: [...call.transcript.segments, segment],
+            fullText: [...call.transcript.segments, segment]
+              .map(s => `${s.speaker}: ${s.text}`)
+              .join('\n')
+          };
+          return { ...call, transcript: updatedTranscript };
         }
-        
-        // Update the merged call with analysis
-        const callWithAnalysis = { ...mergedCall, analytics: analysis };
-        
-        // Remove individual calls and add the merged call
-        setCalls(prev => {
-          const filteredCalls = prev.filter(c => 
-            !mergedCall.callJourney?.some(step => step.agentId === c.agentId)
-          );
-          return [callWithAnalysis, ...filteredCalls];
+        return call;
+      }));
+      
+      if (activeCall?.conversationId === conversationId) {
+        setActiveCall(prev => {
+          if (prev && prev.transcript) {
+            const updatedTranscript = {
+              ...prev.transcript,
+              segments: [...prev.transcript.segments, segment],
+              fullText: [...prev.transcript.segments, segment]
+                .map(s => `${s.speaker}: ${s.text}`)
+                .join('\n')
+            };
+            return { ...prev, transcript: updatedTranscript };
+          }
+          return prev;
         });
-        
-        setActiveCall(callWithAnalysis);
-        // setAnalytics(analysis);
-      } catch (error) {
-        console.error('Failed to analyze merged call:', error);
-      } finally {
-        setIsLoading(false);
       }
     });
 
-    // Handle live audio chunks
-    elevenLabsService.onAudioChunk((conversationId, audioData, speaker) => {
-      console.log(`Live audio chunk for ${conversationId} from ${speaker}:`, audioData.byteLength, 'bytes');
-      // The audio is automatically played by the ElevenLabs service
-      // You can add additional processing here if needed
-    });
+    // Note: Agent transfer handling can be added here when supported
+
+    // Note: Conversation merging and audio chunk handling can be added here when supported by the service
 
     // Subscribe to real-time updates from Supabase
     const unsubscribeNewCalls = supabaseService.subscribeToNewCalls((call) => {

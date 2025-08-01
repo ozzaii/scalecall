@@ -12,7 +12,7 @@ import { ScrollArea } from './ui/scroll-area';
 interface SidebarProps {
   calls: CallData[];
   activeCall: CallData | null;
-  onCallSelect: (call: CallData) => void;
+  onCallSelect: (call: CallData | null) => void;
 }
 
 export default function Sidebar({ calls, activeCall, onCallSelect }: SidebarProps) {
