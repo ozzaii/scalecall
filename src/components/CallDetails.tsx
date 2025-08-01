@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { CallData, MultiAgentAnalytics } from '../types';
 import { motion } from 'framer-motion';
 import { Phone, Clock, Calendar, User, Headphones, FileText, BarChart3, Brain, AlertTriangle, Activity, Sparkles } from 'lucide-react';
@@ -21,12 +21,18 @@ import { toast } from './ui/use-toast';
 
 interface CallDetailsProps {
   call: CallData;
+  onAnalyticsUpdate?: (call: CallData) => void;
 }
 
-export default function CallDetails({ call }: CallDetailsProps) {
+export default function CallDetails({ call, onAnalyticsUpdate }: CallDetailsProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analytics, setAnalytics] = useState(call.analytics);
+  
+  // Update analytics when call prop changes
+  React.useEffect(() => {
+    setAnalytics(call.analytics);
+  }, [call.analytics]);
 
   const handleAnalyzeCall = async () => {
     if (isAnalyzing || !call.duration || call.duration <= 0) return;
@@ -42,6 +48,11 @@ export default function CallDetails({ call }: CallDetailsProps) {
       // Update local state
       setAnalytics(analysis);
       call.analytics = analysis;
+      
+      // Notify parent component
+      if (onAnalyticsUpdate) {
+        onAnalyticsUpdate({ ...call, analytics: analysis });
+      }
       
       toast({
         title: "Analiz Tamamlandı",

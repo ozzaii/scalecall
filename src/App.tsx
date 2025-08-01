@@ -339,6 +339,14 @@ function App() {
             isLiveCall={isLiveCall}
             isLoading={isLoading}
             calls={calls}
+            onCallUpdate={(updatedCall) => {
+              setCalls(prev => prev.map(c => 
+                c.id === updatedCall.id ? updatedCall : c
+              ));
+              if (activeCall?.id === updatedCall.id) {
+                setActiveCall(updatedCall);
+              }
+            }}
           />
         </main>
         

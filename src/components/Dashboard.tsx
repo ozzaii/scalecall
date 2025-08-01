@@ -13,13 +13,15 @@ interface DashboardProps {
   isLiveCall: boolean;
   isLoading: boolean;
   calls: CallData[];
+  onCallUpdate?: (call: CallData) => void;
 }
 
 export default function Dashboard({
   activeCall,
   isLiveCall,
   isLoading,
-  calls
+  calls,
+  onCallUpdate
 }: DashboardProps) {
   if (!activeCall && calls.length === 0) {
     return <EmptyState />;
@@ -107,7 +109,7 @@ export default function Dashboard({
             transition={{ duration: 0.3 }}
             className="h-full"
           >
-            <CallDetails call={activeCall} />
+            <CallDetails call={activeCall} onAnalyticsUpdate={onCallUpdate} />
           </motion.div>
         )}
       </AnimatePresence>
