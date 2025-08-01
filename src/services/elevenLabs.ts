@@ -454,27 +454,39 @@ class ElevenLabsService {
       
       console.log(`Found ${conversations.length} conversations`);
 
-      return conversations.map((conv: any) => ({
-        id: conv.id || conv.conversation_id,
-        conversationId: conv.id || conv.conversation_id,
-        phoneNumber: conv.metadata?.phone_number || conv.phone_number || 'Unknown',
-        customerName: conv.metadata?.customer_name || conv.customer_name || null,
-        agentId: conv.agent_id || conv.metadata?.agent_id || 'agent_default',
-        agentName: conv.metadata?.agent_name || conv.agent_name || 'AI Agent',
-        startTime: new Date(conv.created_at || conv.start_time || conv.timestamp),
-        endTime: conv.ended_at ? new Date(conv.ended_at) : undefined,
-        status: conv.status === 'active' ? 'active' : 'completed',
-        duration: conv.duration || (conv.ended_at && conv.created_at ? 
-          Math.floor((new Date(conv.ended_at).getTime() - new Date(conv.created_at).getTime()) / 1000) : 
-          undefined),
-        transcript: { segments: [], fullText: '', confidence: 0.95 },
-        tags: conv.metadata?.tags || conv.tags || [],
-        audioUrl: conv.audio_url,
-        handoffFromId: conv.metadata?.handoff_from_id,
-        handoffToId: conv.metadata?.handoff_to_id,
-        handoffTimestamp: conv.metadata?.handoff_timestamp ? new Date(conv.metadata.handoff_timestamp) : undefined,
-        callJourney: []
-      }));
+      return conversations.map((conv: any) => {
+        // Parse dates safely
+        const parseDate = (dateStr: any): Date => {
+          if (!dateStr) return new Date();
+          const date = new Date(dateStr);
+          return isNaN(date.getTime()) ? new Date() : date;
+        };
+        
+        const startTime = parseDate(conv.created_at || conv.start_time || conv.timestamp);
+        const endTime = conv.ended_at ? parseDate(conv.ended_at) : undefined;
+        
+        return {
+          id: conv.id || conv.conversation_id || `conv_${Date.now()}_${Math.random()}`,
+          conversationId: conv.id || conv.conversation_id || `conv_${Date.now()}_${Math.random()}`,
+          phoneNumber: conv.metadata?.phone_number || conv.phone_number || 'Unknown',
+          customerName: conv.metadata?.customer_name || conv.customer_name || null,
+          agentId: conv.agent_id || conv.metadata?.agent_id || 'agent_default',
+          agentName: conv.metadata?.agent_name || conv.agent_name || 'AI Agent',
+          startTime,
+          endTime,
+          status: conv.status === 'active' ? 'active' : 'completed',
+          duration: conv.duration || (endTime && startTime ? 
+            Math.floor((endTime.getTime() - startTime.getTime()) / 1000) : 
+            undefined),
+          transcript: { segments: [], fullText: '', confidence: 0.95 },
+          tags: conv.metadata?.tags || conv.tags || [],
+          audioUrl: conv.audio_url,
+          handoffFromId: conv.metadata?.handoff_from_id,
+          handoffToId: conv.metadata?.handoff_to_id,
+          handoffTimestamp: conv.metadata?.handoff_timestamp ? parseDate(conv.metadata.handoff_timestamp) : undefined,
+          callJourney: []
+        };
+      });
     } catch (error) {
       console.error('Failed to get conversation history:', error);
       return [];

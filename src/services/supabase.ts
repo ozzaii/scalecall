@@ -65,11 +65,20 @@ class SupabaseService {
   // Çağrı kaydet veya güncelle
   async upsertCall(call: CallData): Promise<DbCall | null> {
     try {
+      // Ensure dates are valid
+      const startTime = call.startTime instanceof Date && !isNaN(call.startTime.getTime()) 
+        ? call.startTime.toISOString() 
+        : new Date().toISOString();
+        
+      const endTime = call.endTime instanceof Date && !isNaN(call.endTime.getTime())
+        ? call.endTime.toISOString()
+        : undefined;
+      
       const dbCall: Partial<DbCall> = {
         id: call.id,
         conversation_id: call.conversationId,
-        start_time: call.startTime.toISOString(),
-        end_time: call.endTime?.toISOString(),
+        start_time: startTime,
+        end_time: endTime,
         duration: call.duration,
         phone_number: call.phoneNumber,
         customer_name: call.customerName,
@@ -80,7 +89,9 @@ class SupabaseService {
         audio_url: call.audioUrl,
         parent_conversation_id: call.parentConversationId,
         handoff_reason: call.handoffReason,
-        handoff_timestamp: call.handoffTimestamp?.toISOString(),
+        handoff_timestamp: call.handoffTimestamp instanceof Date && !isNaN(call.handoffTimestamp.getTime())
+          ? call.handoffTimestamp.toISOString()
+          : undefined,
         handoff_from_agent: call.handoffFromAgent,
         handoff_to_agent: call.handoffToAgent,
         is_part_of_handoff: call.isPartOfHandoff,
