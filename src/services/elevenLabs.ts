@@ -42,15 +42,46 @@ class ElevenLabsService {
       return;
     }
 
-    // Start polling for conversation updates instead of WebSocket
-    console.log('Starting ElevenLabs conversation polling...');
-    this.startPolling();
-    
-    // Also try to establish WebSocket for real-time updates
-    this.connectToMonitoringWebSocket();
-    
-    // Load initial history
-    this.loadInitialHistory();
+    // Validate API key first
+    this.validateApiKey().then(isValid => {
+      if (isValid) {
+        console.log('ElevenLabs API key validated successfully');
+        
+        // Start polling for conversation updates instead of WebSocket
+        console.log('Starting ElevenLabs conversation polling...');
+        this.startPolling();
+        
+        // Load initial history
+        this.loadInitialHistory();
+      } else {
+        console.error('ElevenLabs API key validation failed - please check your API key');
+      }
+    });
+  }
+  
+  private async validateApiKey(): Promise<boolean> {
+    try {
+      const response = await fetch('https://api.elevenlabs.io/v1/user', {
+        headers: {
+          'xi-api-key': this.apiKey,
+        },
+      });
+      
+      if (!response.ok) {
+        console.error(`API key validation failed with status: ${response.status}`);
+        if (response.status === 401 || response.status === 403) {
+          console.error('Invalid API key - please check your ElevenLabs API key');
+        }
+        return false;
+      }
+      
+      const userData = await response.json();
+      console.log('ElevenLabs user data:', userData);
+      return true;
+    } catch (error) {
+      console.error('Failed to validate API key:', error);
+      return false;
+    }
   }
 
   private async initializeWebSocket(agentId: string): Promise<WebSocket | null> {
@@ -93,46 +124,7 @@ class ElevenLabsService {
     }
   }
   
-  private connectToMonitoringWebSocket() {
-    if (!this.apiKey) {
-      console.warn('API key not set');
-      return;
-    }
-
-    try {
-      console.log('Attempting to connect to ElevenLabs monitoring WebSocket...');
-      
-      // Try the monitoring endpoint
-      const ws = new WebSocket(`wss://api.elevenlabs.io/v1/convai/conversations?xi-api-key=${this.apiKey}`);
-      
-      ws.onopen = () => {
-        console.log('Connected to ElevenLabs monitoring WebSocket');
-      };
-      
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('Monitoring WebSocket message:', data);
-          this.handleWebSocketMessage(data);
-        } catch (error) {
-          console.error('Failed to parse monitoring message:', error);
-        }
-      };
-      
-      ws.onerror = (error) => {
-        console.warn('Monitoring WebSocket error:', error);
-      };
-      
-      ws.onclose = () => {
-        console.log('Monitoring WebSocket closed');
-        // Try to reconnect after 5 seconds
-        setTimeout(() => this.connectToMonitoringWebSocket(), 5000);
-      };
-      
-    } catch (error) {
-      console.error('Failed to connect to monitoring WebSocket:', error);
-    }
-  }
+  // Note: WebSocket monitoring removed as it requires agent-specific connections
   
   private handleWebSocketMessage(data: any, agentId?: string) {
     console.log('WebSocket message:', data);
@@ -432,7 +424,7 @@ class ElevenLabsService {
 
     try {
       const response = await rateLimitedFetch(
-        `https://api.elevenlabs.io/v1/convai/conversations?limit=${limit}`,
+        `https://api.elevenlabs.io/v1/convai/conversations?page_size=${limit}`,
         {
           headers: {
             'xi-api-key': this.apiKey,
@@ -443,19 +435,24 @@ class ElevenLabsService {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to get conversation history: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error(`ElevenLabs API error ${response.status}:`, errorText);
+        throw new Error(`Failed to get conversation history: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
       console.log('Conversation history response:', data);
 
       // Handle different response formats
-      const conversations = data.conversations || data.data || data;
+      // The API returns an object with a conversations array
+      const conversations = data.conversations || [];
       
       if (!Array.isArray(conversations)) {
-        console.warn('Unexpected response format:', data);
+        console.warn('Unexpected response format - expected conversations array:', data);
         return [];
       }
+      
+      console.log(`Found ${conversations.length} conversations`);
 
       return conversations.map((conv: any) => ({
         id: conv.id || conv.conversation_id,
