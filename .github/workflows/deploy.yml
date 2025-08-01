@@ -33,7 +33,6 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_DEMO_MODE: true
           GITHUB_PAGES: true
           
       - name: Setup Pages
