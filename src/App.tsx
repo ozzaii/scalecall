@@ -16,7 +16,7 @@ function App() {
   const [calls, setCalls] = useState<CallData[]>([]);
   const [activeCall, setActiveCall] = useState<CallData | null>(null);
   const [isLiveCall, setIsLiveCall] = useState(false);
-  const [analytics, setAnalytics] = useState<CallAnalytics | null>(null);
+  // const [analytics, setAnalytics] = useState<CallAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -191,14 +191,8 @@ function App() {
     // Start health checks
     healthCheckService.startAutoCheck();
 
-    // Initialize with embedded keys and agent IDs
-    const agentIds = [
-      'agent_2401k1gvpfa2f61bjd2de7sr5xpb', // Orchestrator
-      'agent_8601k1gwxk5vf6ga8nphd7ksd85w', // Support
-      'agent_4801k1j0zt4nfn5t5q9tqhrzhj0k', // Technical
-      'agent_9401k1j14dpne7kr0kzr8a7cj29x'  // Sales
-    ];
-    elevenLabsService.initialize(agentIds);
+    // Initialize with embedded keys
+    elevenLabsService.initialize();
     
     // Set up real-time listeners
     elevenLabsService.onCallStarted((call) => {
@@ -229,7 +223,7 @@ function App() {
           let analysis: CallAnalytics | undefined;
           if (call.audioUrl) {
             analysis = await geminiService.analyzeCallAudio(call.audioUrl);
-            setAnalytics(analysis);
+            // setAnalytics(analysis);
           }
           
           // Save analytics to Supabase if we have analysis
@@ -321,7 +315,7 @@ function App() {
         });
         
         setActiveCall(callWithAnalysis);
-        setAnalytics(analysis);
+        // setAnalytics(analysis);
       } catch (error) {
         console.error('Failed to analyze merged call:', error);
       } finally {
@@ -380,7 +374,6 @@ function App() {
           <Dashboard
             activeCall={activeCall}
             isLiveCall={isLiveCall}
-            analytics={analytics}
             isLoading={isLoading}
             calls={calls}
           />

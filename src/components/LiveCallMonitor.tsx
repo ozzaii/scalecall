@@ -116,7 +116,6 @@ export default function LiveCallMonitor({ call }: LiveCallMonitorProps) {
                 Canlı Ses Akışı
               </h3>
               <LiveAudioVisualizer 
-                conversationId={call.conversationId || call.id} 
                 isActive={true} 
               />
             </Card>

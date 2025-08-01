@@ -67,8 +67,6 @@ export default function WaveformVisualizer({ isActive, audioData }: WaveformVisu
         // Draw smooth curve
         const cp1x = x + barWidth * 0.5;
         const cp1y = centerY - barHeight;
-        const cp2x = x + barWidth * 0.5;
-        const cp2y = centerY + barHeight;
         
         ctx.quadraticCurveTo(cp1x, cp1y, x + barWidth, centerY);
       }

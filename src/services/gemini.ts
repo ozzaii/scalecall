@@ -539,7 +539,7 @@ JSON formatında yanıt ver:
 
       // Transform the analysis into MultiAgentAnalytics format with comprehensive metrics
       const baseAnalytics = this.transformGeminiResponse(analysis, audioUrl);
-      return this.enhanceWithComprehensiveMetrics(baseAnalytics, audioUrl);
+      return this.enhanceWithComprehensiveMetrics(baseAnalytics);
     } catch (error) {
       console.error('Failed to analyze call audio:', error);
       // Return a default analysis in case of error
@@ -559,7 +559,7 @@ JSON formatında yanıt ver:
     });
   }
 
-  private enhanceWithComprehensiveMetrics(baseAnalytics: CallAnalytics, audioUrl: string): MultiAgentAnalytics {
+  private enhanceWithComprehensiveMetrics(baseAnalytics: CallAnalytics): MultiAgentAnalytics {
     // Convert basic analytics to comprehensive multi-agent analytics
     return {
       ...baseAnalytics,

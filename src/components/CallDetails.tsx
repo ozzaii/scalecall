@@ -23,10 +23,6 @@ interface CallDetailsProps {
 export default function CallDetails({ call }: CallDetailsProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const analytics = call.analytics;
-  
-  // Debug logging
-  console.log('CallDetails analytics:', analytics);
-  console.log('Sentiment timeline:', analytics?.sentiment?.timeline);
 
   if (!analytics) {
     return (
@@ -294,7 +290,6 @@ export default function CallDetails({ call }: CallDetailsProps) {
               </Card>
 
               {/* Emotion Radar */}
-              {console.log('Emotions data:', analytics.emotions)}
               {analytics.emotions && analytics.emotions.length > 0 ? (
                 <Card className="bg-white/[0.02] backdrop-blur-xl border-white/[0.06] p-6">
                   <h3 className="text-lg font-medium text-white/90 mb-6">

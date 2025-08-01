@@ -11,10 +11,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 interface TranscriptViewerProps {
   transcript?: Transcript;
-  audioUrl?: string;
 }
 
-export default function TranscriptViewer({ transcript, audioUrl }: TranscriptViewerProps) {
+export default function TranscriptViewer({ transcript }: TranscriptViewerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 

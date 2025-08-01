@@ -189,7 +189,7 @@ export default function AudioPlayer({ audioUrl, transcript }: AudioPlayerProps) 
             Transkript segmentleri
           </p>
           <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full relative">
-            {transcript.segments.map((segment, index) => {
+            {transcript.segments.map((segment) => {
               const startPercent = (segment.startTime / duration) * 100;
               const widthPercent = ((segment.endTime - segment.startTime) / duration) * 100;
               

@@ -1,5 +1,5 @@
 
-import { CallData, CallAnalytics } from '../types';
+import { CallData } from '../types';
 import LiveCallMonitor from './LiveCallMonitor';
 import CallDetails from './CallDetails';
 import AnalyticsDashboard from './AnalyticsDashboard';
@@ -11,7 +11,6 @@ import { Loader2 } from 'lucide-react';
 interface DashboardProps {
   activeCall: CallData | null;
   isLiveCall: boolean;
-  analytics: CallAnalytics | null;
   isLoading: boolean;
   calls: CallData[];
 }
@@ -19,7 +18,6 @@ interface DashboardProps {
 export default function Dashboard({
   activeCall,
   isLiveCall,
-  analytics,
   isLoading,
   calls
 }: DashboardProps) {

@@ -24,7 +24,7 @@ class ElevenLabsService {
     this.apiKey = apiKey;
   }
 
-  initialize(agentIds: string[] = []) {
+  initialize() {
     if (!this.apiKey) {
       console.warn('ElevenLabs API key not set. Please set it using setApiKey()');
       return;
@@ -150,11 +150,11 @@ class ElevenLabsService {
         break;
       case 'agent_transfer':
       case 'transfer':
-        this.handleAgentTransfer(data, agentId);
+        this.handleAgentTransfer(data);
         break;
       case 'audio_chunk':
       case 'audio':
-        this.handleAudioChunk(data, agentId);
+        this.handleAudioChunk(data);
         break;
       default:
         console.log('Unknown message type:', data.type, 'Full data:', data);
@@ -180,7 +180,7 @@ class ElevenLabsService {
     console.log(`Conversation initiated: ${data.conversation_id} on agent ${agentId}`);
   }
 
-  private handleAgentTransfer(data: any, fromAgentId?: string) {
+  private handleAgentTransfer(data: any) {
     const fromCall = this.activeConversations.get(data.from_conversation_id);
     
     if (fromCall) {
@@ -678,7 +678,7 @@ class ElevenLabsService {
     return this.getAllCallsInChain(rootId);
   }
 
-  private handleAudioChunk(data: any, agentId?: string) {
+  private handleAudioChunk(data: any) {
     const conversationId = data.conversation_id;
     const audioData = data.audio_data; // Base64 encoded audio
     const speaker = data.speaker || 'agent';
@@ -766,7 +766,7 @@ class ElevenLabsService {
   }
 
   // Get live audio stream for a conversation
-  getLiveAudioStream(conversationId: string): MediaStream | null {
+  getLiveAudioStream(): MediaStream | null {
     if (!this.audioContext) {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }

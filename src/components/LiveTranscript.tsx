@@ -84,7 +84,7 @@ export default function LiveTranscript({ call }: LiveTranscriptProps) {
     <ScrollArea className="flex-1 pr-4" ref={scrollRef}>
       <div className="space-y-4">
         <AnimatePresence initial={false}>
-          {segments.map((segment, index) => (
+          {segments.map((segment) => (
             <motion.div
               key={segment.id}
               initial={{ opacity: 0, y: 20 }}

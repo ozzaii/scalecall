@@ -5,12 +5,10 @@ import { cn } from '../lib/utils';
 import { Badge } from './ui/badge';
 
 interface LiveAudioVisualizerProps {
-  conversationId: string;
   isActive: boolean;
-  onAudioData?: (data: ArrayBuffer, speaker: 'agent' | 'customer') => void;
 }
 
-export default function LiveAudioVisualizer({ conversationId, isActive, onAudioData }: LiveAudioVisualizerProps) {
+export default function LiveAudioVisualizer({ isActive }: LiveAudioVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -238,7 +236,7 @@ export default function LiveAudioVisualizer({ conversationId, isActive, onAudioD
 
       {/* Frequency Bands */}
       <div className="grid grid-cols-5 gap-2">
-        {['Bas', 'Orta-Bas', 'Orta', 'Orta-Tiz', 'Tiz'].map((band, index) => (
+        {['Bas', 'Orta-Bas', 'Orta', 'Orta-Tiz', 'Tiz'].map((band) => (
           <div key={band} className="text-center">
             <div className="h-20 glass glass-border rounded-lg p-2 flex flex-col justify-end">
               <motion.div

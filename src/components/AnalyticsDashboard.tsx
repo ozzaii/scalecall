@@ -248,7 +248,6 @@ export default function AnalyticsDashboard({ calls }: AnalyticsDashboardProps) {
             <div className="space-y-3">
               {(() => {
                 // Group calls by day of week
-                const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
                 const callsByDay = new Array(7).fill(0);
                 
                 calls.forEach(call => {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Key, Sparkles, Zap, Database } from 'lucide-react';
+import { Key, Sparkles, Zap, Database } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { elevenLabsService } from '../services/elevenLabs';
@@ -25,8 +25,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
     
     if (elevenLabsKey) {
       elevenLabsService.setApiKey(elevenLabsKey);
-      const ids = agentIds.split(',').map(id => id.trim()).filter(Boolean);
-      elevenLabsService.initialize(ids);
+      elevenLabsService.initialize();
     }
     
     if (geminiKey) {
