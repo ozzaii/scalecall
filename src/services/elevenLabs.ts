@@ -12,7 +12,7 @@ interface ConversationEndEvent {
 }
 
 // ElevenLabs API Key - embedded for demo purposes
-const ELEVENLABS_API_KEY = 'sk_cce48ee5e6aa1ee45c0e8c4c0c37afe1c8833f93e72bdd07';
+const ELEVENLABS_API_KEY = 'sk_ee2d9e94b385715b65b109851507e58f69a170f3fab84263';
 
 interface AudioProcessor {
   source: AudioBufferSourceNode;
